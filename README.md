@@ -17,12 +17,12 @@
 * SwiftUI
 * Swift Concurrency (async/await)
 * SPM (Swift Package Manager) - used to split application code into local modules and isolate Core modules from Feature ones
-* [TCA (Swift Composable Architecture)](https://github.com/pointfreeco/swift-composable-architecture) - used for application architecture and primary tool for features presentation layers
+* [TCA (Swift Composable Architecture)](https://github.com/pointfreeco/swift-composable-architecture) - used for application architecture and as primary tool for features presentation layers
 
 
 ## App Screenshots
 
-<p align="middle">
+<p>
   <img src="images/TodayView.png" width="30%" />
   <img src="images/HabitDetails.png" width="30%" />
   <img src="images/CurrentZoneView.png" width="30%" />
@@ -34,8 +34,18 @@
 
 ## Widget Screenshots
 
-<p align="middle">
-  <img src="images/WidgetSmall.png" width="30%" />
-  <img src="images/WidgetMedium.png" width="70%" />
-  <img src="images/WidgetLarge.png" width="100%" />
-</p>
+<table>
+  <tr>
+    <td rowspan="2" valign="top">
+      <img src="images/WidgetLarge.png" width="400">
+    </td>
+    <td>
+      <img src="images/WidgetSmall.png" width="200">
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img src="images/WidgetMedium.png" width="200">
+    </td>
+  </tr>
+</table>

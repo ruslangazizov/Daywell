@@ -1,6 +1,7 @@
 import SwiftUI
 import ComposableArchitecture
 import TasksFeature
+import StatisticsFeature
 import SettingsFeature
 import DesignSystem
 
@@ -23,14 +24,19 @@ public struct AppView: View {
                 )
             }
 
-            Tab("Habits", systemImage: "repeat", value: RootReducer.Tab.habits) {
-                TasksHabitsView(
+            Tab(value: RootReducer.Tab.statistics) {
+                StatisticsView(
                     store: store.scope(
-                        state: \.tasks,
-                        action: \.tasks
+                        state: \.statistics,
+                        action: \.statistics
                     )
                 )
+            } label: {
+                Image(systemName: "chart.bar")
+                    .environment(\.symbolVariants, .none)
+                Text("Statistics")
             }
+
 
             Tab("Settings", systemImage: "gear", value: RootReducer.Tab.settings) {
                 SettingsView(

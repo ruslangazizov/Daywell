@@ -17,6 +17,7 @@ let package = Package(
     products: [
         .library(name: "AppRootFeature", targets: ["AppRootFeature"]),
         .library(name: "TasksFeature", targets: ["TasksFeature"]),
+        .library(name: "StatisticsFeature", targets: ["StatisticsFeature"]),
         .library(name: "SettingsFeature", targets: ["SettingsFeature"]),
     ],
     dependencies: [
@@ -31,6 +32,7 @@ let package = Package(
             name: "AppRootFeature",
             dependencies: [
                 "TasksFeature",
+                "StatisticsFeature",
                 "SettingsFeature",
                 .product(name: "DesignSystem", package: "DaywellCore"),
                 .product(
@@ -42,6 +44,20 @@ let package = Package(
         ),
         .target(
             name: "TasksFeature",
+            dependencies: [
+                .product(name: "Domain", package: "DaywellCore"),
+                .product(name: "Clients", package: "DaywellCore"),
+                .product(name: "DesignSystem", package: "DaywellCore"),
+                .product(name: "Persistence", package: "DaywellCore"),
+                .product(
+                    name: "ComposableArchitecture",
+                    package: "swift-composable-architecture"
+                )
+            ],
+            swiftSettings: uiModuleSettings
+        ),
+        .target(
+            name: "StatisticsFeature",
             dependencies: [
                 .product(name: "Domain", package: "DaywellCore"),
                 .product(name: "Clients", package: "DaywellCore"),

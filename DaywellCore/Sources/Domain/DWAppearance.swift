@@ -1,4 +1,4 @@
-import SwiftUI
+import UIKit
 
 public enum DWAppearance: String, CaseIterable, Sendable {
     case system
@@ -14,14 +14,6 @@ public enum DWAppearance: String, CaseIterable, Sendable {
         case .system: "circle.lefthalf.filled"
         case .light: "sun.max"
         case .dark: "moon"
-        }
-    }
-
-    public var colorScheme: ColorScheme? {
-        switch self {
-        case .system: nil
-        case .light: .light
-        case .dark: .dark
         }
     }
 

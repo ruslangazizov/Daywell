@@ -50,8 +50,6 @@ let package = Package(
             name: "Persistence",
             dependencies: [
                 "Domain",
-                "Clients",
-                "DesignSystem",
                 .product(name: "Sharing", package: "swift-sharing"),
             ],
             swiftSettings: approachableConcurrencySettings
@@ -60,10 +58,7 @@ let package = Package(
             name: "Clients",
             dependencies: [
                 "Domain",
-                .product(
-                    name: "Dependencies",
-                    package: "swift-dependencies"
-                )
+                .product(name: "Dependencies", package: "swift-dependencies")
             ],
             swiftSettings: approachableConcurrencySettings
         ),

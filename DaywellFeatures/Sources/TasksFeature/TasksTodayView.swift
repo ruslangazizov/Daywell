@@ -5,7 +5,6 @@ import SwiftUI
 
 public struct TasksTodayView: View {
     @Bindable var store: StoreOf<TasksReducer>
-    @State private var zonesResetID = 0
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -21,10 +20,8 @@ public struct TasksTodayView: View {
                 TodayHeader {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                         store.send(.todayButtonTapped)
-                        if store.todayLayout == .zones {
-                            zonesResetID += 1
-                        } else {
-                            proxy.scrollTo(scrollTargetID, anchor: .top)
+                        if store.todayLayout != .zones {
+                            proxy.scrollTo(store.scrollTargetID, anchor: .top)
                         }
                     }
                 }
@@ -62,13 +59,13 @@ public struct TasksTodayView: View {
                 }
             }
             .onChange(of: store.selectedLocalDate) {
-                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
+                if store.todayLayout != .zones { proxy.scrollTo(store.scrollTargetID, anchor: .top) }
             }
             .onChange(of: store.todayLayout) {
-                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
+                if store.todayLayout != .zones { proxy.scrollTo(store.scrollTargetID, anchor: .top) }
             }
             .onChange(of: store.hasLoadedData) {
-                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
+                if store.todayLayout != .zones { proxy.scrollTo(store.scrollTargetID, anchor: .top) }
             }
         }
         .background(DWColor.bg(colorScheme).ignoresSafeArea())
@@ -77,19 +74,6 @@ public struct TasksTodayView: View {
         .task { await store.send(.startClock).finish() }
         .onChange(of: scenePhase) {
             if scenePhase == .active { store.send(.clockTick) }
-        }
-    }
-
-    // TODO: move this to TasksReducer
-    private var scrollTargetID: String {
-        let timeline = store.timeline
-        switch store.todayLayout {
-        case .timeline:
-            return timeline.scrollTargetID
-        case .agenda:
-            return TodayListViewModel(timeline: timeline, zones: store.zones).agendaScrollTargetID
-        case .zones:
-            return TodayListViewModel(timeline: timeline, zones: store.zones).zonesScrollTargetID
         }
     }
 
@@ -110,13 +94,13 @@ public struct TasksTodayView: View {
                 onCompletionChanged: completeTask,
                 onAddTask: { store.send(.addTaskButtonTapped) }
             )
-            .id(ZonesIdentity(day: store.selectedLocalDate, resetID: zonesResetID))
+            .id(ZonesIdentity(day: store.selectedLocalDate, resetID: store.zonesResetID))
         }
     }
 
     private struct ZonesIdentity: Hashable {
         let day: LocalDate?
-        let resetID: Int
+        let resetID: UUID
     }
 
     private func completeTask(_ id: TaskOccurrenceID, _ completed: Bool) {

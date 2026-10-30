@@ -22,10 +22,8 @@ struct DailyZonesSettingsView: View {
                 if zones.isEmpty {
                     explanation("No zones yet. Add a zone to give part of your day its own focus.")
                 } else {
-                    // TODO: перенести эту логику в редьюсер
-                    let sortedZones = zones.sorted { $0.window.start < $1.window.start }
                     VStack(spacing: 0) {
-                        ForEach(sortedZones) { zone in
+                        ForEach(zones) { zone in
                             zoneRow(zone)
                                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                     Button(role: .destructive) {
@@ -33,12 +31,11 @@ struct DailyZonesSettingsView: View {
                                             onDeleteZone(zone.id)
                                         }
                                     } label: {
-                                        Label("Delete", systemImage: "trash")
-                                            .labelStyle(IconOnlyLabelStyle())
+                                        Image(systemName: "trash")
                                     }
                                 }
 
-                            if zone.id != sortedZones.last?.id { Divider() }
+                            if zone.id != zones.last?.id { Divider() }
                         }
                     }
                 }

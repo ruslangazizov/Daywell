@@ -23,6 +23,10 @@ public struct SettingsReducer: Reducer {
         var iCloudStatus: ICloudSyncStatus
         var lastConfirmedSync: Date?
 
+        var sortedDailyZones: [DayZone] {
+            dailyZones.sorted { $0.window.start < $1.window.start }
+        }
+
         public init(
             iCloudStatus: ICloudSyncStatus = .notChecked,
             lastConfirmedSync: Date? = nil

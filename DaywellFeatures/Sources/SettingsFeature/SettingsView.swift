@@ -48,7 +48,7 @@ public struct SettingsView: View {
                                 explanation("Tasks are shown in a chronological list")
                             case .zones:
                                 DailyZonesSettingsView(
-                                    zones: store.dailyZones,
+                                    zones: store.sortedDailyZones,
                                     onAddZone: { store.send(.dailyZones(.didTapAdd)) },
                                     onEditZone: { store.send(.dailyZones(.didTapZone($0))) },
                                     onDeleteZone: { store.send(.dailyZones(.didTapDelete($0))) },

@@ -38,7 +38,7 @@ nonisolated struct ClientPreviewData: Sendable {
             )
         }
 
-        // Disjoint, fixed IDs for tasks (1...15) and zones (101...104).
+        // Disjoint, fixed IDs for tasks (1...16) and zones (101...104).
         func id(_ value: UInt8) -> UUID {
             UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, value))
         }
@@ -69,14 +69,13 @@ nonisolated struct ClientPreviewData: Sendable {
             _ title: String,
             description: String? = nil,
             schedule: TaskSchedule? = nil,
-            zone: DayZone? = nil,
             time: TimeWindow? = nil,
             color: TaskColorToken = .lilac,
             archived: Bool = false
         ) throws -> DWTask {
             try DWTask(
                 id: id(number), title: title, description: description,
-                schedule: schedule ?? .once(on: today), zoneID: zone?.id,
+                schedule: schedule ?? .once(on: today),
                 timeWindow: time, color: color, createdAt: date(-30),
                 updatedAt: archived ? date(-1) : date(-14),
                 archivedAt: archived ? date(-1) : nil
@@ -84,25 +83,25 @@ nonisolated struct ClientPreviewData: Sendable {
         }
 
         tasks = try [
-            task(1, "Water", schedule: daily, zone: morning,
+            task(1, "Water", schedule: daily,
                  time: window(420, 425), color: .blue),
             task(2, "Stretch and breathe", description: "A gentle start before checking the phone.",
-                 schedule: daily, zone: morning, time: window(435, 465), color: .mint),
-            // Inherits the zone window; the next two tasks overlap it and each other.
+                 schedule: daily, time: window(435, 465), color: .mint),
+            // Preserve the former default-zone windows as independent task times.
             task(3, "Make room for a slow morning", schedule: everyOtherDay,
-                 zone: morning, color: .peach),
+                 time: window(420, 660), color: .peach),
             task(4, "Prepare the presentation and review all feedback before the team planning session",
                  description: "Review the draft, check the figures, and write down open questions.\n"
                     + "Leave time for a final read-through and share the notes with the team.",
-                 zone: morning, time: window(540, 660), color: .lilac),
-            task(5, "Design review", zone: morning, time: window(570, 615), color: .rose),
-            task(6, "Lunch away from the desk", schedule: daily, zone: afternoon,
+                 time: window(540, 660), color: .lilac),
+            task(5, "Design review", time: window(570, 615), color: .rose),
+            task(6, "Lunch away from the desk", schedule: daily,
                  time: window(750, 795), color: .peach),
-            task(7, "Walk outside 🌿", schedule: weekly, zone: afternoon,
+            task(7, "Walk outside 🌿", schedule: weekly,
                  time: window(900, 945), color: .mint),
-            task(8, "Read a chapter", schedule: daily, zone: evening, color: .lilac),
+            task(8, "Read a chapter", schedule: daily, time: window(1080, 1380), color: .lilac),
             task(9, "Late-night wind down", description: "The window continues into the next day.",
-                 zone: night, time: window(1410, 30, overnight: true), color: .blue),
+                 time: window(1410, 30, overnight: true), color: .blue),
             task(10, "Call Mum", color: .rose),
             task(11, "Collect ideas for a weekend trip, including places to visit and things to pack",
                  description: "An untimed task with a long title to check wrapping.", color: .peach),
@@ -112,7 +111,9 @@ nonisolated struct ClientPreviewData: Sendable {
                  time: window(1080, 1110), color: .mint),
             task(14, "Plan something just for yourself", schedule: .once(on: day(8)), color: .rose),
             // Kept in the client response to exercise the UI's archived-task filter.
-            task(15, "Archived routine", schedule: daily, zone: morning, archived: true),
+            task(15, "Archived routine", schedule: daily, time: window(420, 660), archived: true),
+            // Appears in both Day and Evening, with one shared completion record.
+            task(16, "Plan an evening walk", time: window(1050, 1110), color: .mint),
         ]
 
         let yesterday = try day(-1)

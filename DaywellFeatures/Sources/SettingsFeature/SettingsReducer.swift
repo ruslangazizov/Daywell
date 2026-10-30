@@ -135,7 +135,6 @@ public struct SettingsReducer: Reducer {
 
             case .didChooseFirstDayOfWeek(let day):
                 state.$firstDayOfWeek.withLock { $0 = day }
-                // TODO: apply this preference to calendars.
                 return .none
 
             case .taskDuration(let taskDurationAction):

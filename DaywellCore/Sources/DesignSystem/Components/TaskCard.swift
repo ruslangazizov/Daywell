@@ -1,8 +1,9 @@
 import SwiftUI
 
-public struct TimelineTaskCard: View {
+public struct TaskCard: View {
     let title: String
     let time: String
+    let recurrence: String?
     let colorGroup: DWColorGroup
     let minHeight: CGFloat
 
@@ -11,12 +12,14 @@ public struct TimelineTaskCard: View {
     public init(
         title: String,
         time: String,
+        recurrence: String? = nil,
         colorGroup: DWColorGroup,
         isCompleted: Binding<Bool>,
         minHeight: CGFloat = UIConstants.minTaskCardHeight
     ) {
         self.title = title
         self.time = time
+        self.recurrence = recurrence
         self.colorGroup = colorGroup
         self._isCompleted = isCompleted
         self.minHeight = minHeight
@@ -28,15 +31,30 @@ public struct TimelineTaskCard: View {
     @ScaledMetric(relativeTo: .caption2)
     private var timeSize: CGFloat = 10
 
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.system(size: titleSize, weight: .semibold))
-                .padding(.trailing, 26)
+    @ScaledMetric(relativeTo: .caption2)
+    private var recurrenceSize: CGFloat = 9
 
-            Text(time)
-                .font(.system(size: timeSize, weight: .medium))
-                .lineLimit(1)
+    public var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            if recurrence != nil {
+                Image(systemName: "repeat")
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: titleSize, weight: .semibold))
+                    .padding(.trailing, 26)
+
+                Text(time)
+                    .font(.system(size: timeSize, weight: .medium))
+                    .lineLimit(1)
+
+                if let recurrence {
+                    Text(recurrence)
+                        .font(.system(size: recurrenceSize, weight: .medium))
+                        .lineLimit(1)
+                }
+            }
         }
         .foregroundStyle(colorGroup.label)
         .padding(9)
@@ -96,29 +114,28 @@ public struct TimelineTaskCard: View {
 }
 
 #Preview("Pending / Complete") {
-    TimelineTaskCardStatesPreview()
-}
-
-private struct TimelineTaskCardStatesPreview: View {
-    @State private var allIsCompleted = false
-    private let titles: [String] = [
+    @Previewable @State var allIsCompleted = false
+    let titles: [String] = [
         "Read",
         "Go for a walk",
         "Do math homework",
         "Something long like meditate and practice mindfulness",
     ]
+    let recurrences: [String?] = [
+        nil,
+        "Every day"
+    ]
 
-    var body: some View {
-        VStack(spacing: 8) {
-            ForEach(DWColorGroup.defaults, id: \.bg) { colorGroup in
-                TimelineTaskCard(
-                    title: titles.randomElement()!,
-                    time: "8 PM – 10 PM",
-                    colorGroup: colorGroup,
-                    isCompleted: $allIsCompleted
-                )
-                .frame(width: 148)
-            }
+    VStack(spacing: 8) {
+        ForEach(DWColorGroup.defaults, id: \.bg) { colorGroup in
+            TaskCard(
+                title: titles.randomElement()!,
+                time: "8 PM – 10 PM",
+                recurrence: recurrences.randomElement()!,
+                colorGroup: colorGroup,
+                isCompleted: $allIsCompleted
+            )
+            .frame(width: 200)
         }
     }
 }

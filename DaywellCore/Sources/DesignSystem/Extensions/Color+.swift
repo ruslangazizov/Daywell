@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 extension Color {
-    static func dynamic(light: UIColor, dark: UIColor) -> Color {
+    nonisolated static func dynamic(light: UIColor, dark: UIColor) -> Color {
         return Color(uiColor: UIColor(dynamicProvider: { traitCollection in
             if traitCollection.userInterfaceStyle == .dark {
                 return dark

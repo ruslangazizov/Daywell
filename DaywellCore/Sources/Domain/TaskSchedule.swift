@@ -32,6 +32,23 @@ public nonisolated struct Recurrence: Hashable, Codable, Sendable {
                 guard (1...31).contains(day) else { throw ModelValidationError.invalidDayOfMonth }
             }
         }
+
+        public var stringValue: String {
+            switch self {
+            case let .daily(every):
+                return every == 1 ? "Every day" : "Every \(every) days"
+            case let .weekly(every, weekdays):
+                let names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                let days = weekdays.sorted { $0.mondayBasedIndex < $1.mondayBasedIndex }
+                    .map { names[$0.mondayBasedIndex] }
+                    .joined(separator: ", ")
+                let frequency = every == 1 ? "Weekly" : "Every \(every) weeks"
+                return "\(frequency) on \(days)"
+            case let .monthly(every, day):
+                let frequency = every == 1 ? "Monthly" : "Every \(every) months"
+                return "\(frequency) on day \(day)"
+            }
+        }
     }
 
     public let startsOn: LocalDate
@@ -82,6 +99,11 @@ public nonisolated enum TaskSchedule: Hashable, Codable, Sendable {
     public var isRepeating: Bool {
         if case .repeating = self { return true }
         return false
+    }
+
+    public var recurrence: Recurrence? {
+        if case .repeating(let recurrence) = self { return recurrence }
+        return nil
     }
 
     public var startsOn: LocalDate {

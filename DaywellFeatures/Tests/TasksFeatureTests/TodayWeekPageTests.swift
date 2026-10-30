@@ -1,8 +1,32 @@
 import Foundation
+import Persistence
 import Testing
 @testable import TasksFeature
 
 struct TodayWeekPageTests {
+    @Test(arguments: [
+        (FirstDayOfWeek.sunday, 1), (.monday, 2), (.tuesday, 3),
+        (.wednesday, 4), (.thursday, 5), (.friday, 6), (.saturday, 7)
+    ], [1, 2, 7])
+    func preferenceOverridesCalendar(
+        preference: (day: FirstDayOfWeek, weekday: Int),
+        systemFirstWeekday: Int
+    ) throws {
+        let calendar = calendar(firstWeekday: systemFirstWeekday)
+        let selectedDate = date(2026, 12, 31, calendar: calendar)
+        let pages = TodayWeekPage.surrounding(
+            selectedDate, calendar: calendar, firstDayOfWeek: preference.day
+        )
+        let current = try #require(pages.first { $0.id == 0 })
+
+        #expect(pages.allSatisfy { page in
+            page.dates.count == 7
+                && calendar.component(.weekday, from: page.dates[0]) == preference.weekday
+        })
+        #expect(current.dates.contains { calendar.isDate($0, inSameDayAs: selectedDate) })
+        #expect(Set(pages.flatMap(\.dates)).count == 7 * TodayWeekPage.Constants.weeksCount)
+    }
+
     private func calendar(firstWeekday: Int = 2, timeZone: String = "Europe/Belgrade") -> Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: timeZone)!

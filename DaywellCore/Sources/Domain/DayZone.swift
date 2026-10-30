@@ -13,19 +13,32 @@ public nonisolated struct DayZone: Identifiable, Hashable, Codable, Sendable {
 
     public func isActive(at time: LocalTime) -> Bool { window.contains(time) }
 
-    /// Stable identities keep assignments intact when the standard zones are restored.
+    /// Stable identities keep the standard zones recognizable when defaults are restored.
     public static let defaults: [Self] = {
-        // These literal names and non-overlapping windows satisfy the model invariants.
         try! [
-            Self(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 101)),
-                 name: "Morning", window: TimeWindow(
-                    start: LocalTime(hour: 7, minute: 0), end: LocalTime(hour: 11, minute: 0))),
-            Self(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102)),
-                 name: "Day", window: TimeWindow(
-                    start: LocalTime(hour: 11, minute: 0), end: LocalTime(hour: 18, minute: 0))),
-            Self(id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 103)),
-                 name: "Evening", window: TimeWindow(
-                    start: LocalTime(hour: 18, minute: 0), end: LocalTime(hour: 23, minute: 0)))
+            Self(
+                id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 101)),
+                name: "Morning",
+                window: TimeWindow(
+                    start: LocalTime(hour: 7, minute: 0),
+                    end: LocalTime(hour: 11, minute: 0))
+            ),
+            Self(
+                id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 102)),
+                name: "Day",
+                window: TimeWindow(
+                    start: LocalTime(hour: 11, minute: 0),
+                    end: LocalTime(hour: 18, minute: 0)
+                )
+            ),
+            Self(
+                id: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 103)),
+                name: "Evening",
+                window: TimeWindow(
+                    start: LocalTime(hour: 18, minute: 0),
+                    end: LocalTime(hour: 23, minute: 0)
+                )
+            )
         ]
     }()
 

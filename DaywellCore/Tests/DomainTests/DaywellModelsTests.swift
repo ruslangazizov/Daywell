@@ -133,14 +133,13 @@ struct DaywellModelsTests {
     }
 
     @Test func taskValidationAndDerivedProperties() throws {
-        let zone = try DayZone(name: "Morning", window: window(7, 11))
         let createdAt = Date(timeIntervalSince1970: 100)
         let schedule = try TaskSchedule.repeating(Recurrence(startsOn: date(24), pattern: .daily(every: 1)))
         let task = try DWTask(
             title: " Read ",
             description: " \n",
             schedule: schedule,
-            zoneID: zone.id,
+            timeWindow: window(7, 11),
             createdAt: createdAt
         )
         #expect(task.title == "Read")
@@ -148,8 +147,7 @@ struct DaywellModelsTests {
         #expect(task.isHabit)
         #expect(!task.isArchived)
         #expect(task.updatedAt == createdAt)
-        #expect(try task.effectiveTimeWindow(in: [zone]) == zone.window)
-        #expect(throws: ModelValidationError.unknownZone(zone.id)) { try task.validateZone(in: []) }
+        #expect(task.timeWindow == (try window(7, 11)))
         #expect(throws: ModelValidationError.invalidTimestampOrder) {
             try DWTask(title: "Read", schedule: schedule, createdAt: createdAt,
                             updatedAt: createdAt.addingTimeInterval(-1))
@@ -164,14 +162,13 @@ struct DaywellModelsTests {
         #expect(throws: ModelValidationError.emptyName) { try DWTask(title: " ", schedule: schedule) }
     }
 
-    @Test func taskWindowOverridesZoneAndUnassignedHasNoWindow() throws {
-        let zone = try DayZone(name: "Morning", window: window(7, 11))
+    @Test func taskOwnsItsWindowAndCanBeUntimed() throws {
         let custom = try window(8, 9)
         let schedule = try TaskSchedule.once(on: date(24))
-        let task = try DWTask(title: "Read", schedule: schedule, zoneID: zone.id, timeWindow: custom)
-        #expect(try task.effectiveTimeWindow(in: [zone]) == custom)
-        let unassigned = try DWTask(title: "Read", schedule: schedule)
-        #expect(try unassigned.effectiveTimeWindow(in: []) == nil)
+        let task = try DWTask(title: "Read", schedule: schedule, timeWindow: custom)
+        #expect(task.timeWindow == custom)
+        let untimed = try DWTask(title: "Read", schedule: schedule)
+        #expect(untimed.timeWindow == nil)
     }
 
     @Test func occurrenceIdentityAndOutcome() throws {
@@ -223,5 +220,18 @@ struct DaywellModelsTests {
         #expect(decoded == task)
         let record = try OccurrenceRecord(id: TaskOccurrenceID(taskID: task.id, day: date(24)), outcome: .skipped(at: .now))
         #expect(try JSONDecoder().decode(OccurrenceRecord.self, from: JSONEncoder().encode(record)) == record)
+    }
+
+    @Test func encodedTasksStoreTheirOwnTimeWithoutZoneReferences() throws {
+        let task = try DWTask(title: "Read", schedule: .once(on: date(24)), timeWindow: window(17, 18))
+        let data = try JSONEncoder().encode(task)
+        var json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(json["zoneID"] == nil)
+        #expect(json["timeWindow"] != nil)
+
+        // An obsolete reference cannot override an explicit time window when importing old JSON.
+        json["zoneID"] = UUID().uuidString
+        let legacyData = try JSONSerialization.data(withJSONObject: json)
+        #expect(try JSONDecoder().decode(DWTask.self, from: legacyData) == task)
     }
 }

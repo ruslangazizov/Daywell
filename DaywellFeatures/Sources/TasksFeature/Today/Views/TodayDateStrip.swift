@@ -2,9 +2,11 @@ import DesignSystem
 import SwiftUI
 import Dependencies
 import ComposableArchitecture
+import Persistence
 
 struct TodayDateStrip: View {
     @Dependency(\.calendar) private var calendar
+    @SharedReader(Preferences.firstDayOfWeek) private var firstDayOfWeek
 
     @State private var visibleWeekStart: Date?
     @State private var visiblePage: Int? = 0
@@ -13,7 +15,8 @@ struct TodayDateStrip: View {
     var body: some View {
         let pages = TodayWeekPage.surrounding(
             visibleWeekStart ?? selectedDate,
-            calendar: calendar
+            calendar: calendar,
+            firstDayOfWeek: firstDayOfWeek
         )
 
         ScrollView(.horizontal) {
@@ -44,7 +47,17 @@ struct TodayDateStrip: View {
         .scrollPosition(id: $visiblePage, anchor: .center)
         .defaultScrollAnchor(.center)
         .scrollIndicators(.hidden)
+        // The seven fixed columns need a bounded visual size; VoiceOver still reads each full date.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .fixedSize(horizontal: false, vertical: true)
+        .onChange(of: firstDayOfWeek) {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                visibleWeekStart = nil
+                visiblePage = 0
+            }
+        }
         .onScrollPhaseChange { _, phase in
             guard phase == .idle,
                   let visiblePage,

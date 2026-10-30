@@ -57,16 +57,17 @@ struct TodayDataFlowTests {
         #expect(state.timeline.untimedTasks.first?.isCompleted == false)
     }
 
-    @Test func zoneWindowIsFallbackAndMissingWindowStaysVisible() throws {
+    @Test func changingZonesNeverChangesTaskTimesOrHidesUntimedTasks() throws {
         let zone = try DayZone(name: "Morning", window: window(420, 660))
         let schedule = try TaskSchedule.once(on: day(24))
-        let zoned = try DWTask(title: "Zone", schedule: schedule, zoneID: zone.id)
-        let custom = try DWTask(title: "Custom", schedule: schedule, zoneID: zone.id, timeWindow: window(480, 540))
-        let missing = try DWTask(title: "Missing zone", schedule: schedule, zoneID: UUID())
-        let state = TasksReducer.State(selectedDate: date(24), tasks: [zoned, custom, missing], zones: [zone], calendar: calendar)
-        #expect(state.timeline.tasks.map(\.startMinute) == [420, 480])
-        #expect(state.timeline.untimedTasks.map(\.title) == ["Missing zone"])
-        #expect(state.completionSummary?.totalCount == 3)
+        let timed = try DWTask(title: "Timed", schedule: schedule, timeWindow: window(480, 540))
+        let untimed = try DWTask(title: "Any time", schedule: schedule)
+        let withZones = TasksReducer.State(selectedDate: date(24), tasks: [timed, untimed], zones: [zone], calendar: calendar)
+        let withoutZones = TasksReducer.State(selectedDate: date(24), tasks: [timed, untimed], zones: [], calendar: calendar)
+        #expect(withZones.timeline == withoutZones.timeline)
+        #expect(withoutZones.timeline.tasks.map(\.startMinute) == [480])
+        #expect(withoutZones.timeline.untimedTasks.map(\.title) == ["Any time"])
+        #expect(withoutZones.completionSummary?.totalCount == 2)
     }
 
     @Test func overnightWindowExtendsTheSelectedStartDay() throws {

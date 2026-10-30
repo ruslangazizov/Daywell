@@ -1,15 +1,20 @@
 import Domain
 import Foundation
+import IdentifiedCollections
 
-/// Read-only presentation data, derived from the same occurrences as the summary.
 struct TodayTaskModel: Equatable, Identifiable {
     let id: TaskOccurrenceID
     let title: String
     let time: String
+    let recurrence: String?
     let color: TaskColorToken
     let isCompleted: Bool
-    let startMinute: Int?
-    let endMinute: Int?
+    let timeWindow: TimeWindow?
+
+    var startMinute: Int? { timeWindow?.start.minutesSinceMidnight }
+    var endMinute: Int? {
+        timeWindow.map { $0.start.minutesSinceMidnight + $0.durationInMinutes }
+    }
 }
 
 struct TodayTimelineViewModel: Equatable {
@@ -40,8 +45,8 @@ struct TodayTimelineViewModel: Equatable {
     init(
         tasks: [DWTask],
         day: LocalDate?,
-        zones: [DayZone],
-        occurrences: [TaskOccurrenceID: OccurrenceRecord],
+        occurrences: IdentifiedArrayOf<OccurrenceRecord>,
+        todayLayout: TodayLayout,
         now: Date,
         calendar: Calendar
     ) {
@@ -53,11 +58,13 @@ struct TodayTimelineViewModel: Equatable {
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateStyle = .none
         formatter.timeStyle = .short
+
         let hourFormatter = DateFormatter()
         hourFormatter.locale = formatter.locale
         hourFormatter.calendar = formatter.calendar
         hourFormatter.timeZone = formatter.timeZone
         hourFormatter.setLocalizedDateFormatFromTemplate("j")
+
         var referenceCalendar = Calendar(identifier: .gregorian)
         referenceCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
 
@@ -74,8 +81,7 @@ struct TodayTimelineViewModel: Equatable {
             guard let day else { return nil }
 
             let id = TaskOccurrenceID(taskID: task.id, day: day)
-            // A custom window remains usable even if a zone has been removed.
-            let window = task.timeWindow ?? zones.first(where: { $0.id == task.zoneID })?.window
+            let window = task.timeWindow
             let start = window?.start.minutesSinceMidnight
             let end = window.map { $0.start.minutesSinceMidnight + $0.durationInMinutes }
 
@@ -87,14 +93,19 @@ struct TodayTimelineViewModel: Equatable {
                 label = "Any time"
             }
 
+            var recurrence: String?
+            if todayLayout != .timeline {
+                recurrence = task.schedule.recurrence?.pattern.stringValue
+            }
+
             return TodayTaskModel(
                 id: id,
                 title: task.title,
                 time: label,
+                recurrence: recurrence,
                 color: task.color,
-                isCompleted: occurrences[id]?.isCompleted == true,
-                startMinute: start,
-                endMinute: end
+                isCompleted: occurrences[id: id]?.isCompleted == true,
+                timeWindow: window
             )
         }
         self.tasks = cards.filter { $0.startMinute != nil }.sorted {

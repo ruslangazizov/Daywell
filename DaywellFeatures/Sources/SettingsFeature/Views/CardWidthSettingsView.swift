@@ -79,7 +79,7 @@ struct CardWidthSettingsView: View {
 
             ScrollView(.horizontal) {
                 HStack(spacing: 8) {
-                    TimelineTaskCard(
+                    TaskCard(
                         title: "Do math homework",
                         time: "8 PM – 10 PM",
                         colorGroup: .defaults[0],
@@ -87,7 +87,7 @@ struct CardWidthSettingsView: View {
                     )
                     .frame(width: cardWidth)
 
-                    TimelineTaskCard(
+                    TaskCard(
                         title: "Read",
                         time: "9 PM – 11 PM",
                         colorGroup: .defaults[1],
@@ -95,7 +95,7 @@ struct CardWidthSettingsView: View {
                     )
                     .frame(width: cardWidth)
 
-                    TimelineTaskCard(
+                    TaskCard(
                         title: "Plan  the week",
                         time: "10 PM – 11 PM",
                         colorGroup: .defaults[2],

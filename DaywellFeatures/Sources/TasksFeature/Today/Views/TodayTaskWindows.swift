@@ -94,31 +94,3 @@ private struct TodayTaskWindowColumns: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
-
-struct TodayTaskCard: View {
-    let model: TodayTaskModel
-    var minHeight: CGFloat = UIConstants.minTaskCardHeight
-    let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
-
-    var body: some View {
-        TimelineTaskCard(
-            title: model.title, time: model.time, colorGroup: colorGroup,
-            isCompleted: Binding(
-                get: { model.isCompleted },
-                set: { onCompletionChanged(model.id, $0) }
-            ),
-            minHeight: minHeight
-        )
-        .accessibilityIdentifier(Accessibility.todayTask(model.id.taskID))
-    }
-
-    private var colorGroup: DWColorGroup {
-        switch model.color {
-        case .lilac: DWColorGroup(bg: DWColor.lilacBg, label: DWColor.lilacLabel, border: DWColor.lilacBorder)
-        case .mint: DWColorGroup(bg: DWColor.mintBg, label: DWColor.mintLabel, border: DWColor.mintBorder)
-        case .peach: DWColorGroup(bg: DWColor.peachBg, label: DWColor.peachLabel, border: DWColor.peachBorder)
-        case .blue: DWColorGroup(bg: DWColor.blueBg, label: DWColor.blueLabel, border: DWColor.blueBorder)
-        case .rose: DWColorGroup(bg: DWColor.roseBg, label: DWColor.roseLabel, border: DWColor.roseBorder)
-        }
-    }
-}

@@ -14,6 +14,14 @@ class BaseUITestCase: XCTestCase {
         app.launch()
     }
 
+    override func tearDown() {
+        super.tearDown()
+
+        continueAfterFailure = true
+
+        app = nil
+    }
+
     // MARK: - Helpers
 
     func attachScreenshot(named name: String, needsWait: Bool = true) {

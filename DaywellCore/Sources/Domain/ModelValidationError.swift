@@ -13,7 +13,6 @@ public nonisolated enum ModelValidationError: Error, Equatable, Sendable {
     case invalidTimestampOrder
     case duplicateZoneID(UUID)
     case overlappingZones(UUID, UUID)
-    case unknownZone(UUID)
 }
 
 extension ModelValidationError: LocalizedError {
@@ -31,7 +30,6 @@ extension ModelValidationError: LocalizedError {
         case .invalidTimestampOrder: "Creation, archive and update timestamps are out of order."
         case .duplicateZoneID: "Each zone must have a unique identifier."
         case .overlappingZones: "Zones cannot overlap."
-        case .unknownZone: "The assigned zone does not exist."
         }
     }
 }

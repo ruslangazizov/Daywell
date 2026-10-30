@@ -2,7 +2,6 @@ import SettingsFeature
 import XCTest
 
 final class CustomTaskDurationUITests: BaseUITestCase {
-
     func testCustomDurationMenuAndSheet() {
         app.tabBars.buttons["Settings"].tap()
 

@@ -34,6 +34,7 @@ struct TodayHeader: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Return to today and current time")
+            .accessibilityIdentifier(Accessibility.todayNow)
         }
         .padding(.horizontal, 20)
         .frame(minHeight: 61)

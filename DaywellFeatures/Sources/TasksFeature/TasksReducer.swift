@@ -14,7 +14,8 @@ public struct TasksReducer: Reducer {
         var dateStripResetID = UUID()
         var tasks: [DWTask]
         var tasksOccurrences: IdentifiedArrayOf<OccurrenceRecord>
-        var zones: [DayZone]
+        @SharedReader(Preferences.todayLayout) var todayLayout
+        @SharedReader(Preferences.dailyZones) var zones
         var now: Date
         var calendar: Calendar
         var hasLoadedData: Bool
@@ -26,7 +27,7 @@ public struct TasksReducer: Reducer {
             selectedLocalDate: LocalDate? = nil,
             tasks: [DWTask] = [],
             tasksOccurrences: IdentifiedArrayOf<OccurrenceRecord> = [],
-            zones: [DayZone] = [],
+            zones: [DayZone]? = nil,
             now: Date? = nil,
             calendar: Calendar = .current,
             hasLoadedData: Bool? = nil
@@ -35,7 +36,7 @@ public struct TasksReducer: Reducer {
             self.selectedLocalDate = selectedLocalDate ?? (try? LocalDate(selectedDate, in: calendar.timeZone))
             self.tasks = tasks
             self.tasksOccurrences = tasksOccurrences
-            self.zones = zones
+            if let zones { self._zones = SharedReader(value: zones) }
             self.now = now ?? selectedDate
             self.calendar = calendar
             self.hasLoadedData = hasLoadedData ?? !tasks.isEmpty
@@ -47,7 +48,7 @@ public struct TasksReducer: Reducer {
         }
 
         var completionSummary: TodayCompletionSummaryModel? {
-            guard hasLoadedData, let today = selectedLocalDate else { return nil }
+            guard todayLayout == .timeline, hasLoadedData, let today = selectedLocalDate else { return nil }
 
             let tasksForToday = scheduledTasks
             let completedTasksCount = tasksForToday.count { task in
@@ -64,8 +65,8 @@ public struct TasksReducer: Reducer {
             TodayTimelineViewModel(
                 tasks: scheduledTasks,
                 day: selectedLocalDate,
-                zones: zones,
-                occurrences: Dictionary(uniqueKeysWithValues: tasksOccurrences.map { ($0.id, $0) }),
+                occurrences: tasksOccurrences,
+                todayLayout: todayLayout,
                 now: now,
                 calendar: calendar
             )
@@ -77,7 +78,6 @@ public struct TasksReducer: Reducer {
         public struct Data: Sendable {
             public let tasks: [DWTask]
             public let tasksOccurrences: IdentifiedArrayOf<OccurrenceRecord>
-            public let zones: [DayZone]
         }
 
         case task
@@ -96,8 +96,6 @@ public struct TasksReducer: Reducer {
     @Dependency(\.continuousClock) var clock
     @Dependency(\.tasksClient) var tasksClient
     @Dependency(\.occurrencesClient) var occurrencesClient
-    @Dependency(\.zonesClient) var zonesClient
-    @Shared(Preferences.firstDayOfWeek) var firstDayOfWeek
 
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
@@ -113,8 +111,7 @@ public struct TasksReducer: Reducer {
                 return .run { send in
                     try await send(.dataResponse(.success(Action.Data(
                         tasks: tasksClient.fetch(),
-                        tasksOccurrences: occurrencesClient.fetch(),
-                        zones: zonesClient.fetch()
+                        tasksOccurrences: occurrencesClient.fetch()
                     ))))
                 } catch: { error, send in
                     await send(.dataResponse(.failure(error)))
@@ -126,7 +123,6 @@ public struct TasksReducer: Reducer {
                 case .success(let data):
                     state.tasks = data.tasks
                     state.tasksOccurrences = data.tasksOccurrences
-                    state.zones = data.zones
                     state.hasLoadedData = true
                     state.errorMessage = nil
                 case .failure(let error):

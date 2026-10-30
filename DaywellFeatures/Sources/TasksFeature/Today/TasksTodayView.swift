@@ -1,9 +1,11 @@
 import ComposableArchitecture
 import DesignSystem
+import Domain
 import SwiftUI
 
 public struct TasksTodayView: View {
     @Bindable var store: StoreOf<TasksReducer>
+    @State private var zonesResetID = 0
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -19,7 +21,11 @@ public struct TasksTodayView: View {
                 TodayHeader {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                         store.send(.todayButtonTapped)
-                        proxy.scrollTo(store.timeline.scrollTargetID, anchor: .top)
+                        if store.todayLayout == .zones {
+                            zonesResetID += 1
+                        } else {
+                            proxy.scrollTo(scrollTargetID, anchor: .top)
+                        }
                     }
                 }
 
@@ -43,25 +49,26 @@ public struct TasksTodayView: View {
                     ProgressView("Loading tasks")
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if store.hasLoadedData {
-                    TodayTimelineView(model: store.timeline) { id, completed in
-                        store.send(.completionChanged(id, completed))
-                    }
-                    .overlay(alignment: .bottomTrailing) {
-                        TodayAddTaskButton {
-                            store.send(.addTaskButtonTapped)
+                    tasksContent
+                        .overlay(alignment: .bottomTrailing) {
+                            TodayAddTaskButton {
+                                store.send(.addTaskButtonTapped)
+                            }
+                            .padding(.trailing, 21)
+                            .padding(.bottom, 15)
                         }
-                        .padding(.trailing, 21)
-                        .padding(.bottom, 15)
-                    }
                 } else {
                     Spacer()
                 }
             }
             .onChange(of: store.selectedLocalDate) {
-                proxy.scrollTo(store.timeline.scrollTargetID, anchor: .top)
+                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
+            }
+            .onChange(of: store.todayLayout) {
+                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
             }
             .onChange(of: store.hasLoadedData) {
-                proxy.scrollTo(store.timeline.scrollTargetID, anchor: .top)
+                if store.todayLayout != .zones { proxy.scrollTo(scrollTargetID, anchor: .top) }
             }
         }
         .background(DWColor.bg(colorScheme).ignoresSafeArea())
@@ -71,6 +78,49 @@ public struct TasksTodayView: View {
         .onChange(of: scenePhase) {
             if scenePhase == .active { store.send(.clockTick) }
         }
+    }
+
+    // TODO: move this to TasksReducer
+    private var scrollTargetID: String {
+        let timeline = store.timeline
+        switch store.todayLayout {
+        case .timeline:
+            return timeline.scrollTargetID
+        case .agenda:
+            return TodayListViewModel(timeline: timeline, zones: store.zones).agendaScrollTargetID
+        case .zones:
+            return TodayListViewModel(timeline: timeline, zones: store.zones).zonesScrollTargetID
+        }
+    }
+
+    @ViewBuilder
+    private var tasksContent: some View {
+        let timeline = store.timeline
+        switch store.todayLayout {
+        case .timeline:
+            TodayTimelineView(model: timeline, onCompletionChanged: completeTask)
+        case .agenda:
+            TodayAgendaView(
+                model: TodayListViewModel(timeline: timeline, zones: store.zones),
+                onCompletionChanged: completeTask
+            )
+        case .zones:
+            TodayZonesView(
+                model: TodayZonesViewModel(timeline: timeline, zones: store.zones),
+                onCompletionChanged: completeTask,
+                onAddTask: { store.send(.addTaskButtonTapped) }
+            )
+            .id(ZonesIdentity(day: store.selectedLocalDate, resetID: zonesResetID))
+        }
+    }
+
+    private struct ZonesIdentity: Hashable {
+        let day: LocalDate?
+        let resetID: Int
+    }
+
+    private func completeTask(_ id: TaskOccurrenceID, _ completed: Bool) {
+        store.send(.completionChanged(id, completed))
     }
 }
 

@@ -51,7 +51,7 @@ struct DailyZonesSettingsView: View {
                 .foregroundStyle(DWColor.accent(colorScheme))
                 .accessibilityIdentifier(Accessibility.addZone)
 
-                explanation("Only habits in the current zone appear in Today.\nZones can have gaps, but cannot overlap.")
+                explanation("Tasks appear in every zone their time overlaps. Tasks without a matching zone appear in No zone.\nZones can have gaps, but cannot overlap.")
 
                 let gaps = DailyZonesFormatting.gaps(in: zones)
                 if zones.isEmpty {

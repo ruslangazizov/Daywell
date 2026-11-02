@@ -127,13 +127,19 @@ struct TodayZoneMatchingTests {
         } withDependencies: {
             $0.date = .constant(now)
             $0.calendar = calendar
+            $0.occurrencesClient.save = { _ in }
+            $0.occurrencesClient.delete = { _ in }
         }
 
         let before = TodayListViewModel(timeline: store.state.timeline, zones: store.state.zones)
         let dayCard = try #require(before.zones.first(where: { $0.title == "Day" })?.tasks.first)
         let eveningCard = try #require(before.zones.first(where: { $0.title == "Evening" })?.tasks.first)
         #expect(dayCard.id == eveningCard.id)
-        await store.send(.completionChanged(dayCard.id, true)) { $0.tasksOccurrences.append(record) }
+        await store.send(.completionChanged(dayCard.id, true)) {
+            $0.tasksOccurrences.append(record)
+            $0.savingOccurrenceIDs.insert(id)
+        }
+        await store.receive(\.completionSaveResponse) { $0.savingOccurrenceIDs.remove(id) }
         let completed = TodayListViewModel(timeline: store.state.timeline, zones: store.state.zones)
         #expect(completed.zones.flatMap(\.tasks).count == 2)
         #expect(completed.zones.flatMap(\.tasks).allSatisfy { $0.isCompleted })
@@ -143,7 +149,11 @@ struct TodayZoneMatchingTests {
         await store.send(.completionChanged(eveningCard.id, true))
         #expect(store.state.tasksOccurrences.count == 1)
 
-        await store.send(.completionChanged(eveningCard.id, false)) { $0.tasksOccurrences.remove(id: id) }
+        await store.send(.completionChanged(eveningCard.id, false)) {
+            $0.tasksOccurrences.remove(id: id)
+            $0.savingOccurrenceIDs.insert(id)
+        }
+        await store.receive(\.completionSaveResponse) { $0.savingOccurrenceIDs.remove(id) }
         let undone = TodayListViewModel(timeline: store.state.timeline, zones: store.state.zones)
         #expect(undone.zones.flatMap(\.tasks).allSatisfy { !$0.isCompleted })
         #expect(store.state.completionSummary == TodayCompletionSummaryModel(completedCount: 0, totalCount: 1))

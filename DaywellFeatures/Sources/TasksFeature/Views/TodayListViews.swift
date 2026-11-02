@@ -4,16 +4,18 @@ import SwiftUI
 
 struct TodayAgendaView: View {
     let model: TodayListViewModel
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     var body: some View {
-        TodaySectionList(sections: model.agenda, onCompletionChanged: onCompletionChanged)
+        TodaySectionList(sections: model.agenda, onOpen: onOpen, onCompletionChanged: onCompletionChanged)
             .accessibilityIdentifier(Accessibility.todayAgenda)
     }
 }
 
 private struct TodaySectionList: View {
     let sections: [TodayListViewModel.Section]
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -41,7 +43,7 @@ private struct TodaySectionList: View {
                                     .padding(.bottom, 8)
                             } else {
                                 ForEach(section.tasks) { task in
-                                    TodayTaskCard(model: task, onCompletionChanged: onCompletionChanged)
+                                    TodayTaskCard(model: task, onOpen: onOpen, onCompletionChanged: onCompletionChanged)
                                         .id(TodayListViewModel.taskID(task))
                                 }
                             }

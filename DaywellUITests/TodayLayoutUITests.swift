@@ -1,44 +1,15 @@
 import XCTest
 
 final class TodayLayoutUITests: BaseUITestCase {
-    func testTimeBasedZonesShareCompletionAndKeepUnmatchedTasksSeparate() {
-        chooseLayout("Zones")
-        XCTAssertTrue(app.staticTexts["today.zone.title"].waitForExistence(timeout: 5))
-        firstZone()
-        app.buttons["today.zone.next"].tap()
-        assertZone("Day")
-        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "Monthly reflection")).count, 1)
-
-        let pending = app.buttons["Mark Plan an evening walk complete"]
-        XCTAssertTrue(pending.exists)
-        pending.tap()
-        XCTAssertTrue(app.buttons["Mark Plan an evening walk incomplete"].exists)
-        app.buttons["today.zone.next"].tap()
-        assertZone("Evening")
-        let completed = app.buttons["Mark Plan an evening walk incomplete"]
-        XCTAssertTrue(completed.exists)
-        XCTAssertFalse(app.buttons["Mark Monthly reflection complete"].exists)
-        attachScreenshot(named: "Zones — Shared completion in Evening")
-
-        completed.tap()
-        app.buttons["today.zone.previous"].tap()
-        assertZone("Day")
-        XCTAssertTrue(pending.exists)
-        attachScreenshot(named: "Zones — Monthly reflection and overlapping task in Day")
-
-        app.buttons["today.zone.next"].tap()
-        app.buttons["today.zone.next"].tap()
-        assertZone("No zone")
-        XCTAssertFalse(pending.exists)
-        XCTAssertFalse(app.buttons["Mark Monthly reflection complete"].exists)
-        XCTAssertTrue(app.buttons["Mark Late-night wind down complete"].exists)
-
+    func testFreshStoreShowsNoDemoTasks() {
+        XCTAssertTrue(app.staticTexts["No tasks for this day"].waitForExistence(timeout: 10))
         chooseLayout("Agenda")
-        reveal(pending)
-        XCTAssertEqual(app.buttons.matching(identifier: "Mark Plan an evening walk complete").count, 1)
+        XCTAssertTrue(app.staticTexts["No tasks for this day"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Mark Read a chapter complete"].exists)
+        attachScreenshot(named: "Today — Empty local store")
     }
 
-    func testLongZoneScrollKeepsSelectionWithLargeText() {
+    func testEmptyZoneKeepsSelectionWithLargeText() {
         app.terminate()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
         app.launch()
@@ -94,52 +65,27 @@ final class TodayLayoutUITests: BaseUITestCase {
         attachScreenshot(named: "Zones — Return to now")
     }
 
-    func testSwitchingLayoutsPreservesCompletionAndSavedChoice() {
+    func testSwitchingLayoutsPreservesSavedChoiceWithEmptyStore() {
         XCTAssertTrue(app.scrollViews["today.timeline"].waitForExistence(timeout: 10))
         chooseLayout("Agenda")
         XCTAssertTrue(app.scrollViews["today.agenda"].waitForExistence(timeout: 5))
-        let pending = app.buttons["Mark Read a chapter complete"]
-        reveal(pending)
-        pending.tap()
-        XCTAssertTrue(app.buttons["Mark Read a chapter incomplete"].exists)
-        attachScreenshot(named: "Today — Agenda")
+        attachScreenshot(named: "Today — Empty agenda")
 
         chooseLayout("Zones")
         XCTAssertTrue(app.scrollViews["today.zones"].waitForExistence(timeout: 5))
-        let completed = app.buttons["Mark Read a chapter incomplete"]
-        reveal(completed)
-        XCTAssertTrue(completed.exists)
-        attachScreenshot(named: "Today — Zones")
-        completed.tap()
-
-        chooseLayout("Agenda")
-        XCTAssertTrue(app.scrollViews["today.agenda"].waitForExistence(timeout: 5))
-        reveal(pending)
-        XCTAssertTrue(pending.exists)
+        attachScreenshot(named: "Today — Empty zones")
+        app.tabBars.buttons["Settings"].tap()
+        app.tabBars.buttons["Today"].tap()
+        XCTAssertTrue(app.scrollViews["today.zones"].waitForExistence(timeout: 5))
 
         chooseLayout("Timeline")
         XCTAssertTrue(app.scrollViews["today.timeline"].waitForExistence(timeout: 5))
-        attachScreenshot(named: "Today — Timeline")
     }
 
     private func chooseLayout(_ name: String) {
         app.tabBars.buttons["Settings"].tap()
         app.buttons[name].tap()
         app.tabBars.buttons["Today"].tap()
-    }
-
-    private func reveal(_ element: XCUIElement) {
-        if app.scrollViews["today.zones"].exists {
-            firstZone()
-            for _ in 0..<8 where !element.exists && app.buttons["today.zone.next"].exists {
-                app.buttons["today.zone.next"].tap()
-            }
-        }
-        for _ in 0..<8 where !element.isHittable { app.swipeUp() }
-        if !element.isHittable {
-            for _ in 0..<8 where !element.isHittable { app.swipeDown() }
-        }
-        XCTAssertTrue(element.isHittable)
     }
 
     private func firstZone() {

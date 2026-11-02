@@ -4,6 +4,7 @@ import SwiftUI
 
 struct TodayZonesView: View {
     let model: TodayZonesViewModel
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
     let onAddTask: () -> Void
 
@@ -38,7 +39,7 @@ struct TodayZonesView: View {
                         } else {
                             VStack(spacing: 12) {
                                 ForEach(section.tasks) { task in
-                                    TodayTaskCard(model: task, onCompletionChanged: onCompletionChanged)
+                                    TodayTaskCard(model: task, onOpen: onOpen, onCompletionChanged: onCompletionChanged)
                                 }
                             }
                             if section.tasks.allSatisfy(\.isCompleted) {

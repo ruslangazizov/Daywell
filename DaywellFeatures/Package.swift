@@ -91,6 +91,11 @@ let package = Package(
             swiftSettings: uiModuleSettings
         ),
         .testTarget(
+            name: "StatisticsFeatureTests",
+            dependencies: ["StatisticsFeature"],
+            swiftSettings: uiModuleSettings
+        ),
+        .testTarget(
             name: "SettingsFeatureTests",
             dependencies: ["SettingsFeature"],
             swiftSettings: uiModuleSettings

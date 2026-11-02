@@ -19,7 +19,12 @@ public struct TasksReducer: Reducer {
         case todayButtonTapped
         case dateStripTapped(Date)
         case addTaskButtonTapped
+        case taskEditor(PresentationAction<TaskEditorReducer.Action>)
+        case detailsChanged(TaskOccurrenceID?)
+        case editDetailsTapped
         case completionChanged(TaskOccurrenceID, Bool)
+        case completionSaveResponse(TaskOccurrenceID, previous: OccurrenceRecord?, saved: OccurrenceRecord?, Result<Void, Error>)
+        case dismissError
         case startClock
         case clockTick
     }
@@ -43,9 +48,11 @@ public struct TasksReducer: Reducer {
                 updateDate(dateGenerator.now, in: &state)
 
                 return .run { send in
+                    async let tasks = tasksClient.fetch()
+                    async let occurrences = occurrencesClient.fetch()
                     try await send(.dataResponse(.success(Action.Data(
-                        tasks: tasksClient.fetch(),
-                        tasksOccurrences: occurrencesClient.fetch()
+                        tasks: tasks,
+                        tasksOccurrences: occurrences
                     ))))
                 } catch: { error, send in
                     await send(.dataResponse(.failure(error)))
@@ -82,27 +89,80 @@ public struct TasksReducer: Reducer {
                 updateDate(date, in: &state)
                 return .none
 
+            case .detailsChanged(let id):
+                if let id {
+                    guard id.day == state.selectedLocalDate,
+                          state.scheduledTasks.contains(where: { $0.id == id.taskID }) else { return .none }
+                }
+                state.detailsID = id
+                return .none
+
+            case .editDetailsTapped:
+                guard let id = state.detailsID, state.taskEditor == nil,
+                      let task = state.tasks.first(where: { $0.id == id.taskID }) else { return .none }
+                state.taskEditor = TaskEditorReducer.State(task: task, calendar: calendar)
+                return .none
+
             case .addTaskButtonTapped:
-                // TODO: open add task screen
+                guard state.taskEditor == nil else { return .none }
+                state.taskEditor = TaskEditorReducer.State(
+                    id: uuid(), selectedDate: state.selectedDate, now: dateGenerator.now,
+                    calendar: calendar, duration: state.defaultTaskDuration
+                )
+                return .none
+
+            case .taskEditor(.presented(.delegate(.didSave(let task)))):
+                state.tasks.removeAll { $0.id == task.id }
+                state.tasks.append(task)
+                state.taskEditor = nil
+                return .none
+
+            case .taskEditor:
                 return .none
 
             case let .completionChanged(id, isCompleted):
-                guard id.day == state.selectedLocalDate,
-                      state.scheduledTasks.contains(where: { $0.id == id.taskID }) else { return .none }
+                guard id.day == state.selectedLocalDate || id == state.detailsID,
+                      state.tasks.contains(where: {
+                          $0.id == id.taskID && !$0.isArchived && $0.schedule.occurs(on: id.day)
+                      }) else { return .none }
 
+                let previous = state.tasksOccurrences[id: id]
                 if isCompleted {
-                    guard state.tasksOccurrences[id: id]?.isCompleted != true else { return .none }
+                    guard previous?.isCompleted != true else { return .none }
                     do {
                         state.tasksOccurrences[id: id] = try OccurrenceRecord(
                             id: id, outcome: .completed(at: dateGenerator.now)
                         )
                     } catch {
                         state.errorMessage = error.localizedDescription
+                        return .none
                     }
                 } else {
+                    guard previous != nil else { return .none }
                     state.tasksOccurrences.remove(id: id)
                 }
-                // TODO: persist the changed occurrence when the storage client is ready.
+                state.errorMessage = nil
+                // Coalesce rapid toggles while a write is running. The next write
+                // starts only after acknowledgement, so an older write cannot win.
+                guard state.savingOccurrenceIDs.insert(id).inserted else { return .none }
+                return persist(id, record: state.tasksOccurrences[id: id], previous: previous)
+
+            case let .completionSaveResponse(id, previous, saved, result):
+                switch result {
+                case .success:
+                    let desired = state.tasksOccurrences[id: id]
+                    if desired != saved {
+                        return persist(id, record: desired, previous: saved)
+                    }
+                case .failure(let error):
+                    state.tasksOccurrences[id: id] = previous
+                    state.errorMessage = error.localizedDescription
+                }
+                state.savingOccurrenceIDs.remove(id)
+                return .none
+
+            case .dismissError:
+                state.errorMessage = nil
                 return .none
 
             case .startClock:
@@ -122,9 +182,29 @@ public struct TasksReducer: Reducer {
                 return .none
             }
         }
+        .ifLet(\.$taskEditor, action: \.taskEditor) {
+            TaskEditorReducer()
+        }
     }
 
     public init() {}
+
+    private func persist(
+        _ id: TaskOccurrenceID,
+        record: OccurrenceRecord?,
+        previous: OccurrenceRecord?
+    ) -> Effect<Action> {
+        .run { send in
+            if let record {
+                try await occurrencesClient.save(record)
+            } else {
+                try await occurrencesClient.delete(id)
+            }
+            await send(.completionSaveResponse(id, previous: previous, saved: record, .success(())))
+        } catch: { error, send in
+            await send(.completionSaveResponse(id, previous: previous, saved: record, .failure(error)))
+        }
+    }
 
     private func updateDate(_ date: Date, in state: inout State) {
         state.calendar = calendar

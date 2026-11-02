@@ -5,6 +5,7 @@ import SwiftUI
 struct TodayTaskWindows: View {
     let tasks: [TodayTaskModel]
     let hourHeight: CGFloat
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     private var groups: [TodayTaskWindowGroup] {
@@ -17,7 +18,9 @@ struct TodayTaskWindows: View {
         ZStack(alignment: .topLeading) {
             ForEach(groups) { group in
                 TodayOverlappingTaskWindows(
-                    group: group, hourHeight: hourHeight,
+                    group: group,
+                    hourHeight: hourHeight,
+                    onOpen: onOpen,
                     onCompletionChanged: onCompletionChanged
                 )
                 .offset(y: CGFloat(group.startMinute / 60) * hourHeight)
@@ -32,6 +35,7 @@ struct TodayTaskWindows: View {
 private struct TodayOverlappingTaskWindows: View {
     let group: TodayTaskWindowGroup
     let hourHeight: CGFloat
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     private var height: CGFloat {
@@ -52,6 +56,7 @@ private struct TodayOverlappingTaskWindows: View {
                         group: group,
                         cardWidth: cardWidth,
                         hourHeight: hourHeight,
+                        onOpen: onOpen,
                         onCompletionChanged: onCompletionChanged
                     )
                     .frame(width: contentWidth, height: height, alignment: .topLeading)
@@ -62,6 +67,7 @@ private struct TodayOverlappingTaskWindows: View {
                     group: group,
                     cardWidth: cardWidth,
                     hourHeight: hourHeight,
+                    onOpen: onOpen,
                     onCompletionChanged: onCompletionChanged
                 )
             }
@@ -74,6 +80,7 @@ private struct TodayTaskWindowColumns: View {
     let group: TodayTaskWindowGroup
     let cardWidth: CGFloat
     let hourHeight: CGFloat
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     var body: some View {
@@ -82,7 +89,7 @@ private struct TodayTaskWindowColumns: View {
                 TodayTaskCard(
                     model: placement.task,
                     minHeight: CGFloat((placement.endMinute - placement.startMinute) / 60) * hourHeight - 5,
-                    onCompletionChanged: onCompletionChanged
+                    onOpen: onOpen, onCompletionChanged: onCompletionChanged
                 )
                 .frame(width: cardWidth)
                 .offset(

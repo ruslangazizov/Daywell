@@ -4,6 +4,7 @@ import SwiftUI
 
 struct TodayTimelineView: View {
     let model: TodayTimelineViewModel
+    var onOpen: (TaskOccurrenceID) -> Void = { _ in }
     let onCompletionChanged: (TaskOccurrenceID, Bool) -> Void
 
     @ScaledMetric(relativeTo: .subheadline) private var hourHeight: CGFloat = 84
@@ -25,7 +26,7 @@ struct TodayTimelineView: View {
                         Text("Any time")
                             .font(.subheadline.weight(.semibold))
                         ForEach(model.untimedTasks) { task in
-                            TodayTaskCard(model: task, onCompletionChanged: onCompletionChanged)
+                            TodayTaskCard(model: task, onOpen: onOpen, onCompletionChanged: onCompletionChanged)
                         }
                     }
                     .padding(.horizontal, 20)
@@ -44,6 +45,7 @@ struct TodayTimelineView: View {
                         TodayTaskWindows(
                             tasks: model.tasks,
                             hourHeight: hourHeight,
+                            onOpen: onOpen,
                             onCompletionChanged: onCompletionChanged
                         )
                         .padding(.leading, 59)

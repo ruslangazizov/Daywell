@@ -14,6 +14,16 @@ public struct AppView: View {
     }
 
     public var body: some View {
+        TasksNavigationView(store: store.scope(state: \.tasks, action: \.tasks)) {
+            tabs
+        }
+        .tint(DWColor.accent(colorScheme))
+        .task {
+            await store.send(.settings(.task)).finish()
+        }
+    }
+
+    private var tabs: some View {
         TabView(selection: $store.selectedTab.sending(\.tabSelected)) {
             Tab("Today", systemImage: "calendar", value: RootReducer.Tab.today) {
                 TasksTodayView(
@@ -46,10 +56,6 @@ public struct AppView: View {
                     )
                 )
             }
-        }
-        .tint(DWColor.accent(colorScheme))
-        .task {
-            await store.send(.settings(.task)).finish()
         }
     }
 }

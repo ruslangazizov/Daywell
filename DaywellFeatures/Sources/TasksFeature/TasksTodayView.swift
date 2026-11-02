@@ -15,6 +15,16 @@ public struct TasksTodayView: View {
     }
 
     public var body: some View {
+        todayContent
+            .tint(DWColor.accent(colorScheme))
+            .task { await store.send(.task).finish() }
+            .task { await store.send(.startClock).finish() }
+            .onChange(of: scenePhase) {
+                if scenePhase == .active { store.send(.clockTick) }
+            }
+    }
+
+    private var todayContent: some View {
         ScrollViewReader { proxy in
             VStack(spacing: 0) {
                 TodayHeader {
@@ -37,7 +47,11 @@ public struct TasksTodayView: View {
                 if let errorMessage = store.errorMessage {
                     VStack(spacing: 8) {
                         Text(errorMessage).font(.footnote)
-                        Button("Retry") { store.send(.task) }
+                        if store.hasLoadedData {
+                            Button("Dismiss") { store.send(.dismissError) }
+                        } else {
+                            Button("Retry") { store.send(.task) }
+                        }
                     }
                     .padding()
                 }
@@ -69,12 +83,6 @@ public struct TasksTodayView: View {
             }
         }
         .background(DWColor.bg(colorScheme).ignoresSafeArea())
-        .tint(DWColor.accent(colorScheme))
-        .task { await store.send(.task).finish() }
-        .task { await store.send(.startClock).finish() }
-        .onChange(of: scenePhase) {
-            if scenePhase == .active { store.send(.clockTick) }
-        }
     }
 
     @ViewBuilder
@@ -82,15 +90,17 @@ public struct TasksTodayView: View {
         let timeline = store.timeline
         switch store.todayLayout {
         case .timeline:
-            TodayTimelineView(model: timeline, onCompletionChanged: completeTask)
+            TodayTimelineView(model: timeline, onOpen: { store.send(.detailsChanged($0)) }, onCompletionChanged: completeTask)
         case .agenda:
             TodayAgendaView(
                 model: TodayListViewModel(timeline: timeline, zones: store.zones),
+                onOpen: { store.send(.detailsChanged($0)) },
                 onCompletionChanged: completeTask
             )
         case .zones:
             TodayZonesView(
                 model: TodayZonesViewModel(timeline: timeline, zones: store.zones),
+                onOpen: { store.send(.detailsChanged($0)) },
                 onCompletionChanged: completeTask,
                 onAddTask: { store.send(.addTaskButtonTapped) }
             )
@@ -109,9 +119,8 @@ public struct TasksTodayView: View {
 }
 
 #Preview("Today") {
-    TasksTodayView(
-        store: Store(initialState: TasksReducer.State()) {
-            TasksReducer()
-        }
-    )
+    let store = Store(initialState: TasksReducer.State()) { TasksReducer() }
+    TasksNavigationView(store: store) {
+        TasksTodayView(store: store)
+    }
 }

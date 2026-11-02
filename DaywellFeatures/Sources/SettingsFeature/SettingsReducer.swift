@@ -145,7 +145,6 @@ public struct SettingsReducer: Reducer {
                 switch taskDurationAction {
                 case .didChooseDefault(let duration):
                     state.$defaultTaskDuration.withLock { $0 = duration }
-                    // TODO: apply this preference to new tasks.
                     return .none
 
                 case .didTapCustom:
@@ -162,7 +161,6 @@ public struct SettingsReducer: Reducer {
                         }
                     }
                     state.$defaultTaskDuration.withLock { $0 = duration }
-                    // TODO: apply this preference to new tasks.
                     return .none
 
                 case .custom:

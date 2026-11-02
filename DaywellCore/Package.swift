@@ -58,11 +58,17 @@ let package = Package(
             name: "Clients",
             dependencies: [
                 "Domain",
+                "Persistence",
                 .product(name: "Dependencies", package: "swift-dependencies")
             ],
             swiftSettings: approachableConcurrencySettings
         ),
         // Tests
+        .testTarget(
+            name: "ClientsTests",
+            dependencies: ["Clients", "Persistence"],
+            swiftSettings: approachableConcurrencySettings
+        ),
         .testTarget(
             name: "DomainTests",
             dependencies: ["Domain"],

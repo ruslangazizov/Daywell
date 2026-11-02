@@ -5,6 +5,7 @@ public struct TaskCard: View {
     let time: String
     let recurrence: String?
     let colorGroup: DWColorGroup
+    let onOpen: (() -> Void)?
     let minHeight: CGFloat
 
     @Binding var isCompleted: Bool
@@ -15,12 +16,14 @@ public struct TaskCard: View {
         recurrence: String? = nil,
         colorGroup: DWColorGroup,
         isCompleted: Binding<Bool>,
-        minHeight: CGFloat = UIConstants.minTaskCardHeight
+        minHeight: CGFloat = UIConstants.minTaskCardHeight,
+        onOpen: (() -> Void)? = nil
     ) {
         self.title = title
         self.time = time
         self.recurrence = recurrence
         self.colorGroup = colorGroup
+        self.onOpen = onOpen
         self._isCompleted = isCompleted
         self.minHeight = minHeight
     }
@@ -35,6 +38,20 @@ public struct TaskCard: View {
     private var recurrenceSize: CGFloat = 9
 
     public var body: some View {
+        Group {
+            if let onOpen {
+                Button(action: onOpen) { content }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open details for \(title)")
+            } else {
+                content
+            }
+        }
+        .overlay(alignment: .topTrailing) { completionButton }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var content: some View {
         HStack(alignment: .center, spacing: 12) {
             if recurrence != nil {
                 Image(systemName: "repeat")
@@ -67,10 +84,6 @@ public struct TaskCard: View {
         .overlay {
             shape.strokeBorder(colorGroup.border, lineWidth: 1)
         }
-        .overlay(alignment: .topTrailing) {
-            completionButton
-        }
-        .accessibilityElement(children: .contain)
     }
 
     private var shape: RoundedRectangle {

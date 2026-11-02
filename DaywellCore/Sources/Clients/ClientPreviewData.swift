@@ -3,10 +3,10 @@ import Foundation
 import IdentifiedCollections
 
 #if DEBUG
-/// One snapshot shared by all three clients, even if their fetches straddle midnight.
-/// Dates follow the preview's launch day; IDs and the relative scenarios stay stable.
+/// Sample data used to seed the Debug simulator store once.
+/// Dates follow the first import day; IDs and the relative scenarios stay stable.
 /// In the date strip: yesterday is complete, today is mixed, tomorrow is pending,
-/// +8 days has only untimed tasks, and +9 days is empty. Relaunch after changing time zone.
+/// +8 days has only untimed tasks, and +9 days is empty. Persisted dates do not shift on relaunch.
 nonisolated struct ClientPreviewData: Sendable {
     static let shared: Result<Self, Error> = Result {
         try Self(now: .now, timeZone: .current)

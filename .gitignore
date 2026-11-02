@@ -10,3 +10,4 @@ xcuserdata/
 */**/Package.resolved
 */**/Secrets.swift
 DerivedData/
+settings.json

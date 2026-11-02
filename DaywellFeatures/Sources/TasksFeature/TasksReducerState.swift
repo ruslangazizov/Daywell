@@ -10,6 +10,7 @@ extension TasksReducer {
         var selectedLocalDate: LocalDate?
         var dateStripResetID = UUID()
         var zonesResetID = UUID()
+        // TODO: change to IdentifiedArrayOf<DWTask>
         var tasks: [DWTask]
         var tasksOccurrences: IdentifiedArrayOf<OccurrenceRecord>
         @SharedReader(Preferences.todayLayout) var todayLayout
@@ -17,8 +18,12 @@ extension TasksReducer {
         var now: Date
         var calendar: Calendar
         var hasLoadedData: Bool
+        var savingOccurrenceIDs: Set<TaskOccurrenceID> = []
+        var detailsID: TaskOccurrenceID?
         var isLoading = false
         var errorMessage: String?
+        @SharedReader(Preferences.defaultTaskDuration) var defaultTaskDuration
+        @Presents var taskEditor: TaskEditorReducer.State?
 
         public init(
             selectedDate: Date = .now,

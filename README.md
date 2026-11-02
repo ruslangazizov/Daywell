@@ -24,12 +24,14 @@
 
 ## App Screenshots
 
-<img src="images/TodayView.png" width="30%" />
-<img src="images/HabitDetails.png" width="30%" />
-<img src="images/CurrentZoneView.png" width="30%" />
-<img src="images/StatisticsView1.png" width="30%" />
-<img src="images/StatisticsView2.png" width="30%" />
-<img src="images/TopHour.png" width="30%" />
+<p>
+  <img src="images/TodayView.png" width="30%" />
+  <img src="images/HabitDetails.png" width="30%" />
+  <img src="images/CurrentZoneView.png" width="30%" />
+  <img src="images/StatisticsView1.png" width="30%" />
+  <img src="images/StatisticsView2.png" width="30%" />
+  <img src="images/TopHour.png" width="30%" />
+</p>
 
 
 ## Widget Screenshots

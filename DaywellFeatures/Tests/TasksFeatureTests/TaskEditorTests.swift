@@ -22,6 +22,46 @@ struct TaskEditorTests {
               duration: TaskDuration(minutes: 45))
     }
 
+    @Test func zonePreviewFollowsLayoutAndLivePreferences() throws {
+        @Shared(Preferences.todayLayout) var layout = .timeline
+        @Shared(Preferences.dailyZones) var zones = DayZone.defaults
+        var editor = state()
+        editor.draft.start = try LocalTime(hour: 10, minute: 30)
+        editor.draft.end = try LocalTime(hour: 11, minute: 30)
+        editor.draft.endsNextDay = false
+        #expect(editor.zonePreview == nil)
+        $layout.withLock { $0 = .agenda }
+        #expect(editor.zonePreview == nil)
+        $layout.withLock { $0 = .zones }
+        #expect(editor.zonePreview == .zones(Array(DayZone.defaults.prefix(2))))
+        editor.draft.repeatOption = .daily
+        #expect(editor.zonePreview == .zones(Array(DayZone.defaults.prefix(2))))
+        $zones.withLock { $0 = [] }
+        #expect(editor.zonePreview == .zones([]))
+        $zones.withLock { $0 = DayZone.defaults.reversed() }
+        #expect(editor.zonePreview == .zones(Array(DayZone.defaults.prefix(2))))
+    }
+
+    @Test func zonePreviewUpdatesWithTimeAndDistinguishesInvalidWindows() throws {
+        var editor = state()
+        editor.$todayLayout = SharedReader(value: .zones)
+        editor.$zones = SharedReader(value: DayZone.defaults)
+        // An overnight window entirely inside the gap has no matches.
+        #expect(editor.zonePreview == .zones([]))
+        editor.draft.end = try LocalTime(hour: 7, minute: 0)
+        #expect(editor.zonePreview == .zones([])) // Touching an endpoint is not overlap.
+        editor.draft.end = try LocalTime(hour: 7, minute: 1)
+        #expect(editor.zonePreview == .zones([DayZone.defaults[0]]))
+        editor.draft.endsNextDay = false
+        #expect(editor.zonePreview == .invalidTimeWindow)
+        editor.draft.start = try LocalTime(hour: 7, minute: 1)
+        #expect(editor.zonePreview == .invalidTimeWindow)
+        editor.draft.end = try LocalTime(hour: 11, minute: 0)
+        #expect(editor.zonePreview == .zones([DayZone.defaults[0]]))
+        editor.draft.hasTimeWindow = false
+        #expect(editor.zonePreview == .zones([]))
+    }
+
     @Test func statisticsSuggestionOpensReviewAtNextHourAndCancelDoesNotWrite() async throws {
         let initial = TasksReducer.State(selectedDate: now, calendar: calendar, hasLoadedData: true)
         let planned = calendar.nextDate(after: now, matching: DateComponents(hour: 10, minute: 0), matchingPolicy: .nextTime)!

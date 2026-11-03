@@ -1,6 +1,34 @@
 import XCTest
 
 final class TaskEditorUITests: BaseUITestCase {
+    func testZonePreviewOnlyInZonesAndUpdatesForUntimedHabit() {
+        for layout in ["Timeline", "Agenda", "Zones"] {
+            app.tabBars.buttons["Settings"].tap()
+            app.buttons[layout].tap()
+            app.tabBars.buttons["Today"].tap()
+            openEditor()
+            let zoneHeader = app.staticTexts["taskEditor.zones"]
+            if layout == "Zones" {
+                XCTAssertTrue(zoneHeader.waitForExistence(timeout: 5))
+                attachScreenshot(named: "New task — Automatic daily zones")
+                let timeWindow = app.switches["taskEditor.timeWindow"].switches.firstMatch
+                timeWindow.tap()
+                XCTAssertEqual(timeWindow.value as? String, "0")
+                let noZone = app.descendants(matching: .any)["taskEditor.noZone"].firstMatch
+                XCTAssertTrue(noZone.waitForExistence(timeout: 5))
+                app.buttons["taskEditor.repeat"].tap()
+                app.buttons["Every day"].tap()
+                XCTAssertTrue(app.navigationBars["New habit"].waitForExistence(timeout: 3))
+                XCTAssertTrue(noZone.exists)
+                attachScreenshot(named: "New habit — No zone")
+            } else {
+                XCTAssertFalse(zoneHeader.exists)
+            }
+            app.buttons["taskEditor.cancel"].tap()
+            if layout == "Zones" { app.buttons["Discard changes"].tap() }
+        }
+    }
+
     func testCreatesTaskAndHabitInToday() {
         openEditor()
         XCTAssertFalse(app.buttons["taskEditor.save"].isEnabled)

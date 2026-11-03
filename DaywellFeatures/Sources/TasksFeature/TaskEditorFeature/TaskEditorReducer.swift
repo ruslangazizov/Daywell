@@ -12,6 +12,8 @@ public struct TaskEditorReducer: Reducer {
         let initialDraft: TaskEditorDraft
         let originalTask: DWTask?
         let calendar: Calendar
+        @SharedReader(Preferences.todayLayout) var todayLayout
+        @SharedReader(Preferences.dailyZones) var zones
         var isSaving = false
         var saveError: String?
         @Presents var discardConfirmation: ConfirmationDialogState<Action.DiscardConfirmation>?
@@ -38,6 +40,25 @@ public struct TaskEditorReducer: Reducer {
         var hasChanges: Bool { draft != initialDraft }
         var validationMessage: String? { draft.validationMessage(calendar: calendar) }
         var canSave: Bool { !isSaving && validationMessage == nil }
+
+        var zonePreview: ZonePreview? {
+            guard todayLayout == .zones else { return nil }
+            do {
+                let window = try draft.timeWindow()
+                let matches = zones.filter { window?.overlaps($0.window) == true }.sorted {
+                    if $0.window.start != $1.window.start { return $0.window.start < $1.window.start }
+                    return $0.id.uuidString < $1.id.uuidString
+                }
+                return .zones(matches)
+            } catch {
+                return .invalidTimeWindow
+            }
+        }
+    }
+
+    enum ZonePreview: Equatable {
+        case zones([DayZone])
+        case invalidTimeWindow
     }
 
     @CasePathable

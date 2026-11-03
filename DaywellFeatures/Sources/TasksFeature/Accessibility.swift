@@ -11,6 +11,8 @@ public nonisolated enum Accessibility {
     public static let taskEditorTitle = "taskEditor.title"
     public static let taskEditorNotes = "taskEditor.notes"
     public static let taskEditorTimeWindow = "taskEditor.timeWindow"
+    public static let taskEditorZones = "taskEditor.zones"
+    public static let taskEditorNoZone = "taskEditor.noZone"
     public static let taskEditorRepeat = "taskEditor.repeat"
     public static let taskEditorError = "taskEditor.error"
     public static let taskEditorCancel = "taskEditor.cancel"

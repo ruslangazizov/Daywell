@@ -30,6 +30,9 @@ struct TaskEditorView: View {
                 .listRowBackground(DWColor.group)
 
                 timeSection
+                if let preview = store.zonePreview {
+                    zoneSection(preview)
+                }
                 scheduleSection
 
                 Section("Personalize") {
@@ -125,6 +128,38 @@ struct TaskEditorView: View {
         .listRowBackground(DWColor.group)
     }
 
+    private func zoneSection(_ preview: TaskEditorReducer.ZonePreview) -> some View {
+        Section {
+            switch preview {
+            case .zones(let zones):
+                if zones.isEmpty {
+                    Label("No zone", systemImage: "square.dashed")
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier(Accessibility.taskEditorNoZone)
+                } else {
+                    ForEach(zones) { zone in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(zone.name)
+                            Text(TodayZonesViewModel.intervalLabel(zone.window))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            case .invalidTimeWindow:
+                Text("Choose a valid time window to see zones.")
+                    .foregroundStyle(.secondary)
+            }
+        } header: {
+            Text("Daily zones")
+                .accessibilityIdentifier(Accessibility.taskEditorZones)
+        } footer: {
+            Text("Assigned automatically from the time window. Edit zones in Settings.")
+        }
+        .listRowBackground(DWColor.group)
+    }
+
     private var scheduleSection: some View {
         Section {
             Picker("Repeat", selection: $store.draft.repeatOption) {
@@ -197,10 +232,16 @@ private struct TaskTimePicker: View {
     }
 }
 
-#Preview("New task") {
-    TaskEditorView(store: Store(initialState: TaskEditorReducer.State(
+#Preview("New task · Daily zones") {
+    var state = TaskEditorReducer.State(
         id: UUID(), selectedDate: .now, now: .now, calendar: .current, duration: .defaultValue
-    )) { TaskEditorReducer() })
+    )
+    state.$todayLayout = SharedReader(value: .zones)
+    state.$zones = SharedReader(value: DayZone.defaults)
+    state.draft.start = try! LocalTime(hour: 10, minute: 30)
+    state.draft.end = try! LocalTime(hour: 11, minute: 30)
+    state.draft.endsNextDay = false
+    return TaskEditorView(store: Store(initialState: state) { TaskEditorReducer() })
 }
 
 #Preview("Habit · Dark") {
@@ -209,10 +250,23 @@ private struct TaskTimePicker: View {
     )
     TaskEditorView(store: Store(initialState: {
         var state = state
+        state.$todayLayout = SharedReader(value: .zones)
+        state.$zones = SharedReader(value: DayZone.defaults)
+        state.draft.hasTimeWindow = false
         state.draft.title = "Language practice"
         state.draft.repeatOption = .custom
         state.draft.weekdays = [.monday, .wednesday, .friday]
         return state
     }()) { TaskEditorReducer() })
     .preferredColorScheme(.dark)
+}
+
+#Preview("No zone · Large text") {
+    var state = TaskEditorReducer.State(
+        id: UUID(), selectedDate: .now, now: .now, calendar: .current, duration: .defaultValue
+    )
+    state.$todayLayout = SharedReader(value: .zones)
+    state.draft.hasTimeWindow = false
+    return TaskEditorView(store: Store(initialState: state) { TaskEditorReducer() })
+        .environment(\.dynamicTypeSize, .accessibility3)
 }

@@ -122,5 +122,7 @@ public struct TasksTodayView: View {
     let store = Store(initialState: TasksReducer.State()) { TasksReducer() }
     TasksNavigationView(store: store) {
         TasksTodayView(store: store)
+    } habitStatistics: { _ in
+        Text("Habit statistics")
     }
 }

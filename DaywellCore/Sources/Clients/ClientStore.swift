@@ -12,6 +12,13 @@ enum ClientStore {
         let store: TaskStore
         if ProcessInfo.processInfo.environment["IS_UI_TESTING"] == "true" {
             store = try TaskStore(inMemory: true)
+            #if DEBUG && targetEnvironment(simulator)
+            if ProcessInfo.processInfo.environment["STATISTICS_UI_TEST_FIXTURE"] == "true" {
+                let data = try ClientPreviewData.statisticsHistory(now: .now, timeZone: .current)
+                for task in data.tasks { try store.saveTask(task) }
+                for occurrence in data.occurrences { try store.saveOccurrence(occurrence) }
+            }
+            #endif
         } else {
             #if DEBUG && targetEnvironment(simulator)
             store = try simulatorStore()

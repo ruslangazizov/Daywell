@@ -93,6 +93,41 @@ final class TaskDetailsUITests: BaseUITestCase {
         }
     }
 
+    func testMoreStatsOpensHabitActivityAndReturnsToDetails() {
+        createTask("Daily walk", repeating: true)
+        app.staticTexts["Daily walk"].firstMatch.tap()
+        let moreStats = app.buttons["taskDetails.moreStats"]
+        XCTAssertTrue(moreStats.waitForExistence(timeout: 5))
+        moreStats.tap()
+
+        XCTAssertTrue(app.buttons["statistics.editHabit"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Daily walk"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Today"].exists)
+        let activity = app.buttons["statistics.viewActivity"]
+        for _ in 0..<3 where !activity.isHittable { app.swipeUp() }
+        activity.tap()
+        XCTAssertTrue(app.navigationBars["Recorded activity"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+
+        app.buttons["statistics.editHabit"].tap()
+        let title = app.descendants(matching: .any)["taskEditor.title"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        title.tap()
+        title.typeText(" outside")
+        let editedTitle = (title.value as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        app.buttons["taskEditor.save"].tap()
+        XCTAssertTrue(app.navigationBars[editedTitle].waitForExistence(timeout: 5))
+
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(moreStats.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts[editedTitle].exists)
+        moreStats.tap()
+        XCTAssertTrue(app.buttons["statistics.editHabit"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 5))
+    }
+
     func testDarkDetailsWithLargeText() {
         app.terminate()
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]

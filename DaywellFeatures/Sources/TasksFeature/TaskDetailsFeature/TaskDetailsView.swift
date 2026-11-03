@@ -12,13 +12,20 @@ struct TaskDetailsDestination: View {
     var body: some View {
         if let task = store.tasks.first(where: { $0.id == id.taskID }) {
             TaskDetailsView(
-                model: TaskDetailsModel(task: task, id: id, records: store.tasksOccurrences,
-                                        now: store.now, calendar: store.calendar),
+                model: TaskDetailsModel(
+                    task: task,
+                    id: id,
+                    records: store.tasksOccurrences,
+                    now: store.now,
+                    calendar: store.calendar
+                ),
                 isSaving: store.savingOccurrenceIDs.contains(id),
                 errorMessage: store.errorMessage,
-                onComplete: { store.send(.completionChanged(id, $0)) },
+                onComplete: { store.send(.completionChanged(id, $0))
+                },
                 onEdit: { store.send(.editDetailsTapped) },
-                onDismissError: { store.send(.dismissError) }
+                onDismissError: { store.send(.dismissError) },
+                onTapMoreStats: { store.send(.moreStatsButtonTapped) }
             )
         } else {
             ContentUnavailableView("Task unavailable", systemImage: "calendar.badge.exclamationmark")
@@ -33,6 +40,7 @@ struct TaskDetailsView: View {
     let onComplete: (Bool) -> Void
     let onEdit: () -> Void
     let onDismissError: () -> Void
+    let onTapMoreStats: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -77,8 +85,6 @@ struct TaskDetailsView: View {
             .padding(20)
         }
         .background(DWColor.bg(colorScheme).ignoresSafeArea())
-        .navigationTitle(model.task.isHabit ? "Habit details" : "Task details")
-        .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -127,7 +133,24 @@ struct TaskDetailsView: View {
 
     private var history: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Last 7 days").font(.headline)
+            HStack {
+                Text("Last 7 days").font(.headline)
+                Spacer()
+                Button(action: onTapMoreStats) {
+                    HStack(spacing: 7) {
+                        Text("More stats")
+                            .font(.system(size: 15))
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 13, weight: .regular))
+                    }
+                    .foregroundStyle(DWColor.accent(colorScheme))
+                    .frame(height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("More statistics for this habit")
+                .accessibilityIdentifier(Accessibility.taskDetailsMoreStats)
+            }
+
             if dynamicTypeSize.isAccessibilitySize {
                 ForEach(model.history) { day in
                     Label("\(model.dateLabel(day.id)): \(day.status)", systemImage: day.symbol)
@@ -152,8 +175,8 @@ struct TaskDetailsView: View {
                 }
                 .foregroundStyle(DWColor.accent(colorScheme))
             }
-            Text(model.historySummary).font(.footnote).foregroundStyle(DWColor.accent(colorScheme))
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(Accessibility.taskDetailsHistory)
     }
 
@@ -162,7 +185,7 @@ struct TaskDetailsView: View {
             LabeledContent("Repeat", value: model.repeatLabel)
             if let recurrence = model.task.schedule.recurrence {
                 Divider()
-                LabeledContent("Starts on", value: model.dateLabel(recurrence.startsOn))
+                LabeledContent("Started on", value: model.dateLabel(recurrence.startsOn))
                 if let end = recurrence.endsOn {
                     LabeledContent("Ends on", value: model.dateLabel(end))
                 }
@@ -194,9 +217,19 @@ private func taskDetailsPreview() -> some View {
         color: .mint
     )
     return TaskDetailsView(
-        model: TaskDetailsModel(task: task, id: TaskOccurrenceID(taskID: task.id, day: day),
-                                records: [], now: .now, calendar: .current),
-        isSaving: false, errorMessage: nil, onComplete: { _ in }, onEdit: {}, onDismissError: {}
+        model: TaskDetailsModel(
+            task: task,
+            id: TaskOccurrenceID(taskID: task.id, day: day),
+            records: [],
+            now: .now,
+            calendar: .current
+        ),
+        isSaving: false,
+        errorMessage: nil,
+        onComplete: { _ in },
+        onEdit: {},
+        onDismissError: {},
+        onTapMoreStats: {}
     )
 }
 #endif

@@ -22,6 +22,26 @@ struct TaskEditorTests {
               duration: TaskDuration(minutes: 45))
     }
 
+    @Test func statisticsSuggestionOpensReviewAtNextHourAndCancelDoesNotWrite() async throws {
+        let initial = TasksReducer.State(selectedDate: now, calendar: calendar, hasLoadedData: true)
+        let planned = calendar.nextDate(after: now, matching: DateComponents(hour: 10, minute: 0), matchingPolicy: .nextTime)!
+        let store = TestStore(initialState: initial) { TasksReducer() } withDependencies: {
+            $0.uuid = .constant(UUID(0))
+            $0.date = .constant(now)
+            $0.calendar = calendar
+        }
+        await store.send(.planTaskAtHour(24))
+        await store.send(.planTaskAtHour(10)) {
+            $0.taskEditor = .init(id: UUID(0), selectedDate: planned, now: planned,
+                                 calendar: calendar, duration: initial.defaultTaskDuration)
+        }
+        #expect(store.state.taskEditor?.draft.start == (try LocalTime(hour: 10, minute: 0)))
+        #expect(store.state.taskEditor?.hasChanges == false)
+        #expect(planned > now)
+        await store.send(.taskEditor(.dismiss)) { $0.taskEditor = nil }
+        #expect(store.state.tasks.isEmpty)
+    }
+
     @Test func defaultWindowUsesPreferenceAndCrossesMidnight() throws {
         let draft = state().draft
         let window = try #require(try draft.timeWindow())

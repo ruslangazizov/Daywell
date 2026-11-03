@@ -47,8 +47,14 @@ struct TaskDetailsModel {
         return "Ready when you are"
     }
     var timeLabel: String {
-        let timeline = TodayTimelineViewModel(tasks: [task], day: id.day, occurrences: records,
-                                              todayLayout: .agenda, now: now, calendar: calendar)
+        let timeline = TodayTimelineViewModel(
+            tasks: [task],
+            day: id.day,
+            occurrences: records,
+            todayLayout: .agenda,
+            now: now,
+            calendar: calendar
+        )
         return (timeline.tasks.first ?? timeline.untimedTasks.first)?.time ?? "Any time"
     }
 
@@ -64,14 +70,13 @@ struct TaskDetailsModel {
                               isSelected: day == id.day)
         }
     }
-    var historySummary: String {
-        let count = history.count { if case .completed = $0.outcome { true } else { false } }
-        return "\(count) \(count == 1 ? "completion" : "completions") recorded"
-    }
     func dateLabel(_ day: LocalDate) -> String {
-        date(day).formatted(Date.FormatStyle(locale: calendar.locale ?? .current,
-                                            calendar: calendar, timeZone: calendar.timeZone)
-            .month(.abbreviated).day().year())
+        date(day).formatted(
+            Date.FormatStyle(
+                locale: calendar.locale ?? .current,
+                calendar: calendar, timeZone: calendar.timeZone
+            ).month(.abbreviated).day().year()
+        )
     }
     private var gregorian: Calendar {
         var value = Calendar(identifier: .gregorian)

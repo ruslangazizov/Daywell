@@ -13,9 +13,15 @@ public nonisolated enum StatisticsPeriod: String, CaseIterable, Sendable {
     }
 }
 
-public nonisolated enum StatisticsDestination: String, Identifiable, Sendable {
+public nonisolated enum StatisticsDestination: Hashable, Identifiable, Sendable {
     case about, hour, weekday, habits
+    case habit(UUID)
+    case activity(StatisticsActivityFilter)
     public var id: Self { self }
+}
+
+public nonisolated enum StatisticsActivityFilter: Hashable, Sendable {
+    case period, weekday(Int), habit(UUID)
 }
 
 /// Read-only projection of persisted outcomes. Never infer missed sessions from
@@ -36,6 +42,15 @@ struct StatisticsSummary: Equatable {
         let firstCompletion: Date?
     }
 
+    struct Activity: Equatable, Identifiable {
+        let id: TaskOccurrenceID
+        let title: String
+        let day: Date
+        let isCompleted: Bool
+        let recordedAt: Date
+    }
+
+    let activity: [Activity]
     let period: StatisticsPeriod
     let start: Date
     let end: Date
@@ -49,6 +64,29 @@ struct StatisticsSummary: Equatable {
     let weekdayOccurrences: [Int]
     let habits: [Habit]
     let calendar: Calendar
+
+    func activity(matching filter: StatisticsActivityFilter) -> [Activity] {
+        activity.filter { item in
+            switch filter {
+            case .habit(let id): return item.id.taskID == id
+            case .period: return item.isCompleted && item.day >= start
+            case .weekday(let index):
+                return item.isCompleted && item.day >= start && (calendar.component(.weekday, from: item.day) + 5) % 7 == index
+            }
+        }
+    }
+
+    func hourLabel(_ hour: Int) -> String {
+        var utc = calendar
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = utc.date(from: DateComponents(year: 2026, month: 1, day: 15, hour: hour))!
+        let formatter = DateFormatter()
+        formatter.calendar = utc
+        formatter.timeZone = utc.timeZone
+        formatter.locale = calendar.locale ?? .current
+        formatter.setLocalizedDateFormatFromTemplate("j")
+        return formatter.string(from: date)
+    }
 
     var timedCompletionCount: Int { hours.reduce(0) { $0 + $1.count } }
     var topHour: Bucket? {
@@ -113,6 +151,17 @@ struct StatisticsSummary: Equatable {
         let unique = Dictionary(occurrences.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
         var occurrenceCalendar = Calendar(identifier: .gregorian)
         occurrenceCalendar.timeZone = calendar.timeZone
+        let titles = Dictionary(tasks.map { ($0.id, $0.title) }, uniquingKeysWith: { first, _ in first })
+        activity = unique.values.compactMap { record -> Activity? in
+            guard let title = titles[record.taskID], record.recordedAt <= now,
+                  let day = occurrenceCalendar.date(from: record.day.components), day < end else { return nil }
+            return Activity(id: record.id, title: title, day: day,
+                            isCompleted: record.isCompleted, recordedAt: record.recordedAt)
+        }.sorted {
+            if $0.day != $1.day { return $0.day > $1.day }
+            if $0.title != $1.title { return $0.title < $1.title }
+            return $0.id.taskID.uuidString < $1.id.taskID.uuidString
+        }
         // Attribute a check-in to its scheduled day, including retrospective marks.
         // Keep recordedAt as the real timestamp; never rewrite saved history.
         let completed = unique.values.compactMap { record -> (record: OccurrenceRecord, day: Date)? in

@@ -16,6 +16,11 @@ public struct AppView: View {
     public var body: some View {
         TasksNavigationView(store: store.scope(state: \.tasks, action: \.tasks)) {
             tabs
+        } habitStatistics: { id in
+            HabitStatisticsView(
+                store: store.scope(state: \.statistics, action: \.statistics),
+                habitID: id
+            )
         }
         .tint(DWColor.accent(colorScheme))
         .task {

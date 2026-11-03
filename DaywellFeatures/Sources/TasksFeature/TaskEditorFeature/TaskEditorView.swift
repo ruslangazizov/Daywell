@@ -55,7 +55,6 @@ struct TaskEditorView: View {
                             if store.isSaving { ProgressView().tint(.white) }
                             Text(store.isEditing ? "Save changes" : (store.draft.isHabit ? "Add habit" : "Add task"))
                                 .fontWeight(.semibold)
-                            Image(systemName: "checkmark")
                             Spacer()
                         }
                         .padding(.vertical, 6)
@@ -64,10 +63,6 @@ struct TaskEditorView: View {
                     .buttonBorderShape(.capsule)
                     .disabled(!store.canSave)
                     .accessibilityIdentifier(Accessibility.taskEditorAdd)
-                } header: {
-                    Text("Time windows can overlap. Choose what feels right when the time comes.")
-                        .textCase(nil)
-                        .padding(.bottom, 8)
                 }
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
@@ -76,9 +71,11 @@ struct TaskEditorView: View {
             .scrollDismissesKeyboard(.interactively)
             .scrollContentBackground(.hidden)
             .background(DWColor.grouped(colorScheme))
-            .navigationTitle(store.isEditing
-                             ? (store.draft.isHabit ? "Edit habit" : "Edit task")
-                             : (store.draft.isHabit ? "New habit" : "New task"))
+            .navigationTitle(
+                store.isEditing
+                ? (store.draft.isHabit ? "Edit habit" : "Edit task")
+                : (store.draft.isHabit ? "New habit" : "New task")
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -121,6 +118,8 @@ struct TaskEditorView: View {
                 Text("Do this task at any time during the day.")
             } else if store.draft.endsNextDay {
                 Text("This window ends the following day. The task stays on its start date.")
+            } else {
+                Text("Time windows can overlap. Choose what feels right when the time comes.")
             }
         }
         .listRowBackground(DWColor.group)
@@ -135,17 +134,23 @@ struct TaskEditorView: View {
             }
             .accessibilityIdentifier(Accessibility.taskEditorRepeat)
 
-            DatePicker(store.draft.isHabit ? "Starts on" : "Date",
-                       selection: $store.draft.scheduledDate, displayedComponents: .date)
+            DatePicker(
+                store.draft.isHabit ? "Starts on" : "Date",
+                selection: $store.draft.scheduledDate,
+                displayedComponents: .date
+            )
             if store.draft.repeatOption == .custom {
                 TaskRepeatFields(draft: $store.draft, calendar: store.calendar)
             }
             if store.draft.isHabit {
                 Toggle("End repeat", isOn: $store.draft.hasEndDate)
                 if store.draft.hasEndDate {
-                    DatePicker("Ends on", selection: $store.draft.endDate,
-                               in: store.calendar.startOfDay(for: store.draft.scheduledDate)...,
-                               displayedComponents: .date)
+                    DatePicker(
+                        "Ends on",
+                        selection: $store.draft.endDate,
+                        in: store.calendar.startOfDay(for: store.draft.scheduledDate)...,
+                        displayedComponents: .date
+                    )
                 }
             }
         } header: {
@@ -154,7 +159,7 @@ struct TaskEditorView: View {
             if store.draft.isHabit {
                 Text(store.isEditing
                      ? "Changes apply to the whole habit. Recorded completions are kept."
-                     : "A task that repeats is a habit.")
+                     : "A task that repeats is a habit")
                 if store.draft.repeatOption == .monthly ||
                     (store.draft.repeatOption == .custom && store.draft.frequency == .monthly) {
                     Text("Months without the selected day are skipped.")

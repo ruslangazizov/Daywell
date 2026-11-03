@@ -20,6 +20,7 @@ extension TasksReducer {
         var hasLoadedData: Bool
         var savingOccurrenceIDs: Set<TaskOccurrenceID> = []
         var detailsID: TaskOccurrenceID?
+        public internal(set) var habitStatisticsID: UUID?
         var isLoading = false
         var errorMessage: String?
         @SharedReader(Preferences.defaultTaskDuration) var defaultTaskDuration

@@ -18,6 +18,7 @@ public struct StatisticsReducer: Reducer {
         var hasLoaded = false
         var errorMessage: String?
         var destination: StatisticsDestination?
+        var path: [StatisticsDestination] = []
 
         var summary: StatisticsSummary {
             StatisticsSummary(
@@ -27,6 +28,10 @@ public struct StatisticsReducer: Reducer {
                 now: now,
                 calendar: calendar
             )
+        }
+
+        public func taskForEditing(id: UUID) -> DWTask? {
+            tasks.first { $0.id == id && $0.isHabit && !$0.isArchived }
         }
 
         public init() {}
@@ -44,6 +49,9 @@ public struct StatisticsReducer: Reducer {
         case dataResponse(Result<Data, Error>)
         case periodChanged(StatisticsPeriod)
         case destinationChanged(StatisticsDestination?)
+        case pathChanged([StatisticsDestination])
+        case planTask(Int)
+        case editHabit(UUID)
         case goToToday
     }
 
@@ -102,9 +110,16 @@ public struct StatisticsReducer: Reducer {
                 state.period = period
                 return .none
             case let .destinationChanged(destination):
-                state.destination = destination
+                if let destination, destination != .about {
+                    state.path.append(destination)
+                } else {
+                    state.destination = destination
+                }
                 return .none
-            case .goToToday:
+            case let .pathChanged(path):
+                state.path = path
+                return .none
+            case .planTask, .editHabit, .goToToday:
                 return .none
             }
         }

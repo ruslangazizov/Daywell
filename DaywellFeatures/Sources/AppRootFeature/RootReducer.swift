@@ -44,13 +44,19 @@ public struct RootReducer: Reducer {
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none
+            case let .statistics(.planTask(hour)):
+                return .send(.tasks(.planTaskAtHour(hour)))
+            case let .statistics(.editHabit(id)):
+                guard let task = state.statistics.taskForEditing(id: id) else { return .none }
+                return .send(.tasks(.editTask(task)))
             case .statistics(.goToToday):
                 state.selectedTab = .today
                 return .send(.tasks(.todayButtonTapped))
             case .tasks(.completionSaveResponse(_, _, _, .success)),
                  .tasks(.taskEditor(.presented(.delegate(.didSave)))):
                 // A write may finish after the user has switched tabs.
-                return state.selectedTab == .statistics ? .send(.statistics(.task)) : .none
+                return state.selectedTab == .statistics || state.tasks.habitStatisticsID != nil
+                    ? .send(.statistics(.task)) : .none
             case .tasks, .statistics, .settings:
                 return .none
             }

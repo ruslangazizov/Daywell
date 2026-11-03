@@ -13,7 +13,7 @@ public struct StatisticsView: View {
     }
 
     public var body: some View {
-        NavigationStack {
+        NavigationStack(path: $store.path.sending(\.pathChanged)) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     header
@@ -25,6 +25,11 @@ public struct StatisticsView: View {
                         }
                         .font(.subheadline)
                         .accessibilityIdentifier("statistics.error")
+                    }
+                    if store.hasLoaded && store.isLoading {
+                        ProgressView("Updating statistics")
+                            .font(.caption)
+                            .accessibilityIdentifier("statistics.updating")
                     }
                     if store.hasLoaded {
                         content(store.summary)
@@ -47,8 +52,23 @@ public struct StatisticsView: View {
                 // Keep the native refresh indicator visible for at least 300 ms.
                 try? await clock.sleep(until: minimumEnd)
             }
+            .navigationTitle("Statistics")
+            .navigationDestination(for: StatisticsDestination.self) { destination in
+                StatisticsDetailView(
+                    destination: destination, summary: store.summary,
+                    planTask: { store.send(.planTask($0)) },
+                    editHabit: { store.send(.editHabit($0)) }
+                )
+            }
             .sheet(item: $store.destination.sending(\.destinationChanged)) { destination in
-                StatisticsDetailView(destination: destination, summary: store.summary)
+                NavigationStack {
+                    StatisticsDetailView(destination: destination, summary: store.summary)
+                        .toolbar {
+                            ToolbarItem(placement: .confirmationAction) {
+                                Button("Done") { store.send(.destinationChanged(nil)) }
+                            }
+                        }
+                }
             }
         }
         .tint(DWColor.accent(colorScheme))
@@ -70,13 +90,13 @@ public struct StatisticsView: View {
                     store.send(.destinationChanged(.about))
                 } label: {
                     Image(systemName: "info.circle")
-                        .font(.body)
-                        .frame(width: 44, height: 44)
+                        .font(.title)
                 }
                 .accessibilityLabel("How insights work")
                 .accessibilityIdentifier("statistics.about")
             }
-            Text("See what works for you.")
+            Text(!store.summary.hasAnyCompletions ? "Discover your own rhythm." :
+                 store.summary.historyDays < 7 ? "A little history goes a long way." : "See what works for you.")
                 .font(.body)
                 .foregroundStyle(DWColor.secondary(colorScheme))
         }
@@ -166,7 +186,15 @@ public struct StatisticsView: View {
                     .font(.caption)
                     .foregroundStyle(DWColor.secondary(colorScheme))
             }
-            StatisticsBarChart(buckets: summary.bars)
+            if summary.historyDays < 7 {
+                ProgressView(value: Double(summary.historyDays), total: 7)
+                    .accessibilityLabel("Complete days of history")
+                    .accessibilityValue("\(summary.historyDays) of 7 days")
+                Text("\(summary.historyDays) of 7 complete days")
+                    .font(.caption).foregroundStyle(DWColor.secondary(colorScheme))
+            } else {
+                StatisticsBarChart(buckets: summary.bars)
+            }
         }
         .statisticsCard()
     }
@@ -208,7 +236,7 @@ public struct StatisticsView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Image(systemName: "chart.bar.xaxis").font(.title2)
                     Text("Your rhythm is taking shape").font(.title3.bold())
-                    Text("We need at least 7 complete days and 20 tasks marked done on their scheduled day in this period before calling out a top hour. Retrospective marks still count toward your totals.")
+                    Text("We need at least 7 complete days and 20 same-day check-ins in this period before calling out a top hour.\n\nKeep using Daywell as usual. There is no daily target to unlock insights.")
                         .font(.subheadline)
                 }
                 .foregroundStyle(DWColor.lilacLabel)
@@ -233,6 +261,7 @@ public struct StatisticsView: View {
                            footer: "See weekday patterns")
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("statistics.weekday")
         }
     }
 
@@ -243,6 +272,7 @@ public struct StatisticsView: View {
                 Spacer()
                 if !summary.habits.isEmpty {
                     Button("All habits") { store.send(.destinationChanged(.habits)) }
+                        .accessibilityIdentifier("statistics.allHabits")
                         .font(.subheadline)
                         .frame(minHeight: 44)
                 }
@@ -269,10 +299,15 @@ public struct StatisticsView: View {
         }
     }
 
-    private func habitCard(_ habit: StatisticsSummary.Habit, title: String, count: Int,
-                           since: String? = nil, background: Color = DWColor.group,
-                           foreground: Color = DWColor.label) -> some View {
-        Button { store.send(.destinationChanged(.habits)) } label: {
+    private func habitCard(
+        _ habit: StatisticsSummary.Habit,
+        title: String,
+        count: Int,
+        since: String? = nil,
+        background: Color = DWColor.group,
+        foreground: Color = DWColor.label
+    ) -> some View {
+        Button { store.send(.destinationChanged(.habit(habit.id))) } label: {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top, spacing: 14) {
                     Image(systemName: "repeat").font(.title2)
@@ -334,14 +369,6 @@ public struct StatisticsView: View {
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
-    }
-}
-
-extension View {
-    func statisticsCard(_ background: Color = DWColor.group) -> some View {
-        self.padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(background, in: RoundedRectangle(cornerRadius: 24))
     }
 }
 

@@ -16,6 +16,32 @@ nonisolated struct ClientPreviewData: Sendable {
     let occurrences: IdentifiedArrayOf<OccurrenceRecord>
     let zones: [DayZone]
 
+    /// Opt-in UI-test history; never written to the persistent simulator or device database.
+    static func statisticsHistory(now: Date, timeZone: TimeZone) throws -> (tasks: [DWTask], occurrences: [OccurrenceRecord]) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let today = calendar.startOfDay(for: now)
+        let start = calendar.date(byAdding: .day, value: -35, to: today)!
+        let tasks = try ["Read 10 pages", "Morning walk", "Practice French"].map { title in
+            try DWTask(title: title,
+                       schedule: .repeating(Recurrence(startsOn: LocalDate(start, in: timeZone), pattern: .daily(every: 1))),
+                       timeWindow: TimeWindow(start: LocalTime(hour: 10, minute: 0), end: LocalTime(hour: 10, minute: 30)),
+                       createdAt: start)
+        }
+        var records: [OccurrenceRecord] = []
+        for offset in 1...28 {
+            let day = calendar.date(byAdding: .day, value: -offset, to: today)!
+            for (index, task) in tasks.enumerated() {
+                let recordedAt = calendar.date(bySettingHour: index == 2 ? 18 : 10, minute: 0, second: 0, of: day)!
+                records.append(try OccurrenceRecord(
+                    id: TaskOccurrenceID(taskID: task.id, day: LocalDate(day, in: timeZone)),
+                    outcome: .completed(at: recordedAt)
+                ))
+            }
+        }
+        return (tasks, records)
+    }
+
     init(now: Date, timeZone: TimeZone) throws {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone

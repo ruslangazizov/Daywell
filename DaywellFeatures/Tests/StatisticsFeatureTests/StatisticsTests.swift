@@ -153,6 +153,29 @@ struct StatisticsTests {
         #expect(today.topHour == nil)
     }
 
+    @Test func activityReceiptsRespectWindowsSkipsAndRetrospectiveDays() throws {
+        let habit = try task()
+        let records = try [record(habit, day: 2), record(habit, day: 24, completedOn: 30),
+                           record(habit, day: 25, skipped: true), record(habit, day: 30)]
+        let result = summary([habit], records)
+        let all = result.activity(matching: .habit(habit.id))
+        #expect(all.count == 3)
+        #expect(all.first?.isCompleted == false)
+        #expect(result.activity(matching: .period).count == result.total)
+        let saturday = result.activity(matching: .weekday(5))
+        #expect(saturday.count == 1)
+        #expect(saturday.first?.day == date(24, hour: 0))
+        #expect(result.activity(matching: .weekday(6)).isEmpty)
+    }
+
+    @Test func detailNavigationKeepsAboutSeparateAndSupportsBack() async {
+        let store = TestStore(initialState: StatisticsReducer.State()) { StatisticsReducer() }
+        await store.send(.destinationChanged(.hour)) { $0.path = [.hour] }
+        await store.send(.pathChanged([])) { $0.path = [] }
+        await store.send(.destinationChanged(.about)) { $0.destination = .about }
+        await store.send(.destinationChanged(nil)) { $0.destination = nil }
+    }
+
     @Test func refreshDuringLoadIsNotLost() async {
         var state = StatisticsReducer.State()
         state.isLoading = true

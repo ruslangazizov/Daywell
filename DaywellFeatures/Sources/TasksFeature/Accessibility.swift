@@ -6,6 +6,7 @@ public nonisolated enum Accessibility {
     public static let taskDetailsEdit = "taskDetails.edit"
     public static let taskDetailsComplete = "taskDetails.complete"
     public static let taskDetailsHistory = "taskDetails.history"
+    public static let taskDetailsMoreStats = "taskDetails.moreStats"
     public static let taskDetailsError = "taskDetails.error"
     public static let taskEditorTitle = "taskEditor.title"
     public static let taskEditorNotes = "taskEditor.notes"

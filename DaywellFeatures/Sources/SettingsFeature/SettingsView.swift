@@ -19,6 +19,10 @@ public struct SettingsView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
+                        Text("Settings")
+                            .font(.largeTitle.bold())
+                            .accessibilityAddTraits(.isHeader)
+
                         block(title: "APPEARANCE") {
                             ChoiceControl(
                                 options: DWAppearance.allCases,
@@ -103,7 +107,7 @@ public struct SettingsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
-            .navigationTitle("Settings")
+            .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(item: $store.scope(state: \.customTaskDuration, action: \.taskDuration.custom)) { store in
             CustomTaskDurationView(store: store)

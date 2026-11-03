@@ -62,6 +62,42 @@ struct TaskDetailsTests {
         #expect(store.state.timeline.tasks.first?.isCompleted == false)
     }
 
+    @Test func moreStatsUsesTheDisplayedHabitAndPreservesDetailsOnBack() async throws {
+        let task = try habit()
+        let id = try TaskOccurrenceID(taskID: task.id, day: day(24))
+        let store = TestStore(initialState: TasksReducer.State(
+            selectedDate: date(24), tasks: [task], calendar: calendar
+        )) { TasksReducer() } withDependencies: {
+            $0.calendar = calendar
+        }
+
+        await store.send(.moreStatsButtonTapped)
+        await store.send(.detailsChanged(id)) { $0.detailsID = id }
+        // Changing the selected day must not change which habit's details are open.
+        await store.send(.dateStripTapped(date(25))) {
+            $0.selectedDate = date(25)
+            $0.selectedLocalDate = try? day(25)
+        }
+        await store.send(.moreStatsButtonTapped) { $0.habitStatisticsID = task.id }
+        await store.send(.habitStatisticsChanged(nil)) { $0.habitStatisticsID = nil }
+        #expect(store.state.detailsID == id)
+        await store.send(.moreStatsButtonTapped) { $0.habitStatisticsID = task.id }
+        await store.send(.detailsChanged(nil)) {
+            $0.detailsID = nil
+            $0.habitStatisticsID = nil
+        }
+    }
+
+    @Test func moreStatsIgnoresOneTimeTasks() async throws {
+        let task = try DWTask(title: "Read", schedule: .once(on: day(24)), createdAt: date(24))
+        let id = try TaskOccurrenceID(taskID: task.id, day: day(24))
+        let store = TestStore(initialState: TasksReducer.State(
+            selectedDate: date(24), tasks: [task], calendar: calendar
+        )) { TasksReducer() }
+        await store.send(.detailsChanged(id)) { $0.detailsID = id }
+        await store.send(.moreStatsButtonTapped)
+    }
+
     @Test func failedCompletionRestoresDetailsAndToday() async throws {
         struct SaveError: Error {}
         let task = try habit()
@@ -91,7 +127,6 @@ struct TaskDetailsTests {
         #expect(model.history[3].status == "Completed")
         #expect(model.history[4].status == "Skipped")
         #expect(model.history[5].status == "No recorded outcome")
-        #expect(model.historySummary == "1 completion recorded")
     }
 
     @Test func editingPreservesIdentityExactRecurrenceAndHistory() async throws {

@@ -19,11 +19,15 @@ public struct TasksReducer: Reducer {
         case todayButtonTapped
         case dateStripTapped(Date)
         case addTaskButtonTapped
+        case planTaskAtHour(Int)
+        case editTask(DWTask)
         case taskEditor(PresentationAction<TaskEditorReducer.Action>)
         case detailsChanged(TaskOccurrenceID?)
         case editDetailsTapped
         case completionChanged(TaskOccurrenceID, Bool)
         case completionSaveResponse(TaskOccurrenceID, previous: OccurrenceRecord?, saved: OccurrenceRecord?, Result<Void, Error>)
+        case moreStatsButtonTapped
+        case habitStatisticsChanged(UUID?)
         case dismissError
         case startClock
         case clockTick
@@ -95,11 +99,29 @@ public struct TasksReducer: Reducer {
                           state.scheduledTasks.contains(where: { $0.id == id.taskID }) else { return .none }
                 }
                 state.detailsID = id
+                state.habitStatisticsID = nil
                 return .none
 
             case .editDetailsTapped:
                 guard let id = state.detailsID, state.taskEditor == nil,
                       let task = state.tasks.first(where: { $0.id == id.taskID }) else { return .none }
+                state.taskEditor = TaskEditorReducer.State(task: task, calendar: calendar)
+                return .none
+
+            case let .planTaskAtHour(hour):
+                guard (0..<24).contains(hour), state.taskEditor == nil else { return .none }
+                let now = dateGenerator.now
+                // Pick the next occurrence of this wall-clock hour, never a past time.
+                guard let planned = calendar.nextDate(after: now, matching: DateComponents(hour: hour, minute: 0),
+                                                       matchingPolicy: .nextTime) else { return .none }
+                state.taskEditor = TaskEditorReducer.State(
+                    id: uuid(), selectedDate: planned, now: planned,
+                    calendar: calendar, duration: state.defaultTaskDuration
+                )
+                return .none
+
+            case let .editTask(task):
+                guard state.taskEditor == nil, !task.isArchived else { return .none }
                 state.taskEditor = TaskEditorReducer.State(task: task, calendar: calendar)
                 return .none
 
@@ -159,6 +181,18 @@ public struct TasksReducer: Reducer {
                     state.errorMessage = error.localizedDescription
                 }
                 state.savingOccurrenceIDs.remove(id)
+                return .none
+
+            case .moreStatsButtonTapped:
+                guard let id = state.detailsID,
+                      state.tasks.contains(where: { $0.id == id.taskID && $0.isHabit && !$0.isArchived })
+                else { return .none }
+                state.habitStatisticsID = id.taskID
+                return .none
+
+            case let .habitStatisticsChanged(id):
+                guard id == nil || id == state.habitStatisticsID else { return .none }
+                state.habitStatisticsID = id
                 return .none
 
             case .dismissError:

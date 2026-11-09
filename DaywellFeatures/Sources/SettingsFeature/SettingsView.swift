@@ -81,12 +81,18 @@ public struct SettingsView: View {
                                 taskRemindersEnabled: $store.taskRemindersEnabled
                                     .sending(\.didChangeTaskRemindersEnabled),
                                 appIconBadgeEnabled: $store.appIconBadgeEnabled
-                                    .sending(\.didChangeAppIconBadgeEnabled)
+                                    .sending(\.didChangeAppIconBadgeEnabled),
+                                isRequestingNotifications: store.isRequestingNotifications
                             )
                         } footer: {
                             explanation(
                                 "Turning reminders off keeps their times in your tasks. The badge hides when nothing is left."
                             )
+                        }
+
+                        if let error = store.reminderSchedulingError {
+                            explanation(error)
+                                .foregroundStyle(.red)
                         }
 
                         block(title: "ICLOUD") {
@@ -116,6 +122,7 @@ public struct SettingsView: View {
         .sheet(item: $store.scope(state: \.editDayZone, action: \.dailyZones.editor)) { store in
             EditDayZoneView(store: store)
         }
+        .alert($store.scope(state: \.notificationsAlert, action: \.notificationsAlert))
         .confirmationDialog($store.scope(state: \.zonesConfirmation, action: \.dailyZones.confirmation))
     }
 

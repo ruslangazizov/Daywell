@@ -20,6 +20,9 @@ public struct SettingsReducer: Reducer {
         @Presents var customTaskDuration: CustomTaskDurationReducer.State?
         @Shared(Preferences.taskRemindersEnabled) var taskRemindersEnabled
         @Shared(Preferences.appIconBadgeEnabled) var appIconBadgeEnabled
+        var isRequestingNotifications = false
+        var reminderSchedulingError: String?
+        @Presents var notificationsAlert: AlertState<Action.NotificationsAlert>?
         var iCloudStatus: ICloudSyncStatus
         var lastConfirmedSync: Date?
         var isCheckingICloud = false
@@ -49,11 +52,21 @@ public struct SettingsReducer: Reducer {
         case taskDuration(TaskDurationAction)
         case dailyZones(DailyZonesAction)
         case didChangeTaskRemindersEnabled(Bool)
+        case checkNotificationAuthorization
+        case notificationStatusChecked(NotificationAuthorization)
+        case notificationAuthorizationResponse(Result<NotificationAuthorization, Error>)
+        case notificationsAlert(PresentationAction<NotificationsAlert>)
+        case reminderSchedulingResponse(String?)
         case didChangeAppIconBadgeEnabled(Bool)
         case didTapCheckICloudStatus
         case iCloudStatusChanged(ICloudSnapshot)
         case iCloudCheckResponse(ICloudSnapshot)
         case iCloudDataChanged
+
+        @CasePathable
+        public enum NotificationsAlert: Equatable {
+            case openSettings
+        }
 
         @CasePathable
         public enum TaskDurationAction {
@@ -80,9 +93,19 @@ public struct SettingsReducer: Reducer {
 
     @Dependency(\.userInterfaceStyleClient) var userInterfaceStyleClient
     @Dependency(\.iCloudClient) var iCloudClient
-    private nonisolated enum CancelID: Hashable, Sendable { case observation, check }
+    @Dependency(\.notificationsClient) var notificationsClient
+    private nonisolated enum CancelID: Hashable, Sendable { case observation, check, notificationPermission }
 
     @Dependency(\.uuid) var uuid
+
+    static var notificationsDeniedAlert: AlertState<Action.NotificationsAlert> {
+        AlertState { TextState("Notifications are off") } actions: {
+            ButtonState(action: .openSettings) { TextState("Open Settings") }
+            ButtonState(role: .cancel) { TextState("Not now") }
+        } message: {
+            TextState("Allow notifications for Daywell in iOS Settings, then turn Task reminders on again.")
+        }
+    }
 
     public init() {}
 
@@ -185,8 +208,61 @@ public struct SettingsReducer: Reducer {
                 }
 
             case .didChangeTaskRemindersEnabled(let isEnabled):
-                state.$taskRemindersEnabled.withLock { $0 = isEnabled }
-                // TODO: update reminder scheduling on this device.
+                state.reminderSchedulingError = nil
+                if !isEnabled {
+                    state.$taskRemindersEnabled.withLock { $0 = false }
+                    state.isRequestingNotifications = false
+                    return .cancel(id: CancelID.notificationPermission)
+                }
+                guard !state.taskRemindersEnabled, !state.isRequestingNotifications else { return .none }
+                state.$taskRemindersEnabled.withLock { $0 = true }
+                state.isRequestingNotifications = true
+                return .run { send in
+                    await send(.notificationAuthorizationResponse(Result {
+                        try await notificationsClient.requestAuthorization()
+                    }))
+                }.cancellable(id: CancelID.notificationPermission, cancelInFlight: true)
+
+            case .notificationAuthorizationResponse(let result):
+                guard state.isRequestingNotifications else { return .none }
+                state.isRequestingNotifications = false
+                switch result {
+                case .success(.authorized):
+                    state.$taskRemindersEnabled.withLock { $0 = true }
+                case .success:
+                    state.$taskRemindersEnabled.withLock { $0 = false }
+                    state.notificationsAlert = Self.notificationsDeniedAlert
+                case .failure:
+                    state.$taskRemindersEnabled.withLock { $0 = false }
+                    state.notificationsAlert = AlertState {
+                        TextState("Could not enable reminders")
+                    } actions: {
+                        ButtonState(role: .cancel) { TextState("OK") }
+                    } message: {
+                        TextState("Please try turning Task reminders on again.")
+                    }
+                }
+                return .none
+
+            case .checkNotificationAuthorization:
+                guard state.taskRemindersEnabled, !state.isRequestingNotifications else { return .none }
+                return .run { send in
+                    await send(.notificationStatusChecked(notificationsClient.authorizationStatus()))
+                }
+
+            case .notificationStatusChecked(let status):
+                guard !state.isRequestingNotifications else { return .none }
+                if status != .authorized { state.$taskRemindersEnabled.withLock { $0 = false } }
+                return .none
+
+            case .notificationsAlert(.presented(.openSettings)):
+                return .run { _ in await notificationsClient.openSettings() }
+
+            case .notificationsAlert:
+                return .none
+
+            case .reminderSchedulingResponse(let error):
+                state.reminderSchedulingError = error
                 return .none
 
             case .didChangeAppIconBadgeEnabled(let isEnabled):
@@ -221,6 +297,7 @@ public struct SettingsReducer: Reducer {
         .ifLet(\.$editDayZone, action: \.dailyZones.editor) {
             EditDayZoneReducer()
         }
+        .ifLet(\.$notificationsAlert, action: \.notificationsAlert)
         .ifLet(\.$zonesConfirmation, action: \.dailyZones.confirmation)
     }
 

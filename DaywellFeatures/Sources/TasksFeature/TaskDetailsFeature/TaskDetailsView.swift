@@ -21,8 +21,7 @@ struct TaskDetailsDestination: View {
                 ),
                 isSaving: store.savingOccurrenceIDs.contains(id),
                 errorMessage: store.errorMessage,
-                onComplete: { store.send(.completionChanged(id, $0))
-                },
+                onComplete: { store.send(.completionChanged(id, $0)) },
                 onEdit: { store.send(.editDetailsTapped) },
                 onDismissError: { store.send(.dismissError) },
                 onTapMoreStats: { store.send(.moreStatsButtonTapped) }
@@ -59,19 +58,32 @@ struct TaskDetailsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+
                 timeWindow
+
                 if let description = model.task.description {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Description").font(.headline)
                         Text(description).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                 }
+
                 Label(model.status, systemImage: model.isCompleted ? "checkmark.circle" : "clock")
                     .font(.subheadline)
                     .foregroundStyle(model.isCompleted ? DWColor.accent(colorScheme) : DWColor.secondary(colorScheme))
                     .accessibilityIdentifier(Accessibility.taskDetailsStatus)
+
                 if model.task.isHabit { history }
+
                 schedule
+
+                if let reminderLabel = model.reminderLabel {
+                    LabeledContent("Remind", value: reminderLabel)
+                        .font(.body)
+                        .padding(16)
+                        .background(DWColor.group, in: RoundedRectangle(cornerRadius: 20))
+                }
+
                 if let errorMessage {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Couldn’t save completion").font(.headline)

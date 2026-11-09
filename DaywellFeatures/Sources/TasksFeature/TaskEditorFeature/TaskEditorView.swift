@@ -107,7 +107,7 @@ struct TaskEditorView: View {
 
     private var timeSection: some View {
         Section {
-            Toggle("Time window", isOn: $store.draft.hasTimeWindow)
+            Toggle("Time window", isOn: $store.draft.hasTimeWindow.sending(\.timeWindowChanged))
                 .accessibilityIdentifier(Accessibility.taskEditorTimeWindow)
             if store.draft.hasTimeWindow {
                 TaskTimePicker(title: "Starts", time: $store.draft.start)
@@ -186,6 +186,20 @@ struct TaskEditorView: View {
                         in: store.calendar.startOfDay(for: store.draft.scheduledDate)...,
                         displayedComponents: .date
                     )
+                }
+            }
+            if store.taskRemindersEnabled {
+                Picker("Reminder", selection: $store.draft.reminderOption) {
+                    ForEach(TaskEditorDraft.ReminderOption.allCases.filter {
+                        store.draft.hasTimeWindow || !$0.needsTimeWindow
+                    }, id: \.self) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+                .accessibilityIdentifier(Accessibility.taskEditorReminder)
+                if store.draft.reminderOption == .customTime {
+                    TaskTimePicker(title: "Remind me at", time: $store.draft.reminderTime)
+                        .accessibilityIdentifier(Accessibility.taskEditorReminderTime)
                 }
             }
         } header: {

@@ -25,7 +25,7 @@ public struct AppView: View {
         }
         .tint(DWColor.accent(colorScheme))
         .task {
-            await store.send(.settings(.task)).finish()
+            await store.send(.task).finish()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { store.send(.becameActive) }

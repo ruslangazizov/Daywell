@@ -17,6 +17,32 @@ nonisolated struct TaskEditorDraft: Equatable, Sendable {
         case daily = "Days", weekly = "Weeks", monthly = "Months"
     }
 
+    enum ReminderOption: String, CaseIterable, Sendable {
+        case none = "None"
+        case atStart = "At start"
+        case fiveMinutes = "5 minutes before"
+        case fifteenMinutes = "15 minutes before"
+        case thirtyMinutes = "30 minutes before"
+        case oneHour = "1 hour before"
+        case customTime = "Custom time"
+
+        var needsTimeWindow: Bool { self != .none && self != .customTime }
+    }
+
+    var reminderOption: ReminderOption = .none
+    var reminderTime = try! LocalTime(hour: 9, minute: 0)
+    var reminder: TaskReminder? {
+        switch reminderOption {
+        case .none: nil
+        case .atStart: .atStart
+        case .fiveMinutes: .beforeStart(.fiveMinutes)
+        case .fifteenMinutes: .beforeStart(.fifteenMinutes)
+        case .thirtyMinutes: .beforeStart(.thirtyMinutes)
+        case .oneHour: .beforeStart(.oneHour)
+        case .customTime: .atTime(reminderTime)
+        }
+    }
+
     var title = ""
     var notes = ""
     var hasTimeWindow = true
@@ -61,6 +87,20 @@ nonisolated struct TaskEditorDraft: Equatable, Sendable {
         title = task.title
         notes = task.description ?? ""
         color = task.color
+        switch task.reminder {
+        case nil: reminderOption = .none
+        case .atStart: reminderOption = .atStart
+        case .beforeStart(let lead):
+            switch lead {
+            case .fiveMinutes: reminderOption = .fiveMinutes
+            case .fifteenMinutes: reminderOption = .fifteenMinutes
+            case .thirtyMinutes: reminderOption = .thirtyMinutes
+            case .oneHour: reminderOption = .oneHour
+            }
+        case .atTime(let time):
+            reminderOption = .customTime
+            reminderTime = time
+        }
         hasTimeWindow = task.timeWindow != nil
         if let window = task.timeWindow {
             start = window.start
@@ -120,7 +160,7 @@ nonisolated struct TaskEditorDraft: Equatable, Sendable {
 
     func task(id: UUID, now: Date, calendar: Calendar, original: DWTask? = nil) throws -> DWTask {
         try DWTask(id: id, title: title, description: notes, schedule: schedule(in: calendar),
-                   timeWindow: timeWindow(), color: color, createdAt: original?.createdAt ?? now,
+                   timeWindow: timeWindow(), reminder: reminder, color: color, createdAt: original?.createdAt ?? now,
                    updatedAt: max(now, original?.updatedAt ?? now), archivedAt: original?.archivedAt)
     }
 

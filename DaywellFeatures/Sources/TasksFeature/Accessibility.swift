@@ -1,6 +1,8 @@
 import Foundation
 
 public nonisolated enum Accessibility {
+    public static let taskEditorReminder = "taskEditor.reminder"
+    public static let taskEditorReminderTime = "taskEditor.reminderTime"
     public static let taskDetailsTitle = "taskDetails.title"
     public static let taskDetailsStatus = "taskDetails.status"
     public static let taskDetailsEdit = "taskDetails.edit"

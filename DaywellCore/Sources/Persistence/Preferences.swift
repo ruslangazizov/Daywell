@@ -54,14 +54,14 @@ public enum Preferences {
     public static var taskRemindersEnabled: AppStorageKey<Bool>.Default {
         AppStorageKey<Bool>.Default[
             .appStorage(UserDefaultsKeys.taskRemindersEnabled),
-            default: true
+            default: false
         ]
     }
 
     public static var appIconBadgeEnabled: AppStorageKey<Bool>.Default {
         AppStorageKey<Bool>.Default[
             .appStorage(UserDefaultsKeys.appIconBadgeEnabled),
-            default: true
+            default: false
         ]
     }
 }

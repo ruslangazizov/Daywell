@@ -1,6 +1,34 @@
 import XCTest
 
 final class TodayLayoutUITests: BaseUITestCase {
+    func testNowReturnsToCurrentWeekAfterBrowsingWithoutSelectingDate() {
+        let pager = app.scrollViews["today.weekPager"]
+        XCTAssertTrue(pager.waitForExistence(timeout: 10))
+        let today = pager.buttons.matching(NSPredicate(format: "isSelected == true")).firstMatch
+        XCTAssertTrue(today.isHittable)
+        let todayLabel = today.label
+
+        // Swiping changes the visible week while today remains the selected date.
+        // Repeat in both directions to also exercise consecutive Now presses.
+        for browseForward in [true, false] {
+            if browseForward {
+                pager.swipeLeft()
+                pager.swipeLeft()
+            } else {
+                pager.swipeRight()
+                pager.swipeRight()
+            }
+            let currentDay = pager.buttons[todayLabel]
+            XCTAssertFalse(currentDay.isHittable)
+            app.buttons["today.now"].tap()
+            let visible = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == true AND hittable == true AND selected == true"),
+                object: currentDay
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [visible], timeout: 5), .completed)
+        }
+    }
+
     func testFreshStoreShowsNoDemoTasks() {
         XCTAssertTrue(app.staticTexts["No tasks for this day"].waitForExistence(timeout: 10))
         chooseLayout("Agenda")

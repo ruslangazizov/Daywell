@@ -11,6 +11,7 @@ public nonisolated struct DWTask: Identifiable, Hashable, Codable, Sendable {
     public let schedule: TaskSchedule
     /// The task owns its time; changing daily zones only changes how it is grouped.
     public let timeWindow: TimeWindow?
+    public let reminder: TaskReminder?
     public let color: TaskColorToken
     public let createdAt: Date
     public let updatedAt: Date
@@ -22,6 +23,7 @@ public nonisolated struct DWTask: Identifiable, Hashable, Codable, Sendable {
         description: String? = nil,
         schedule: TaskSchedule,
         timeWindow: TimeWindow? = nil,
+        reminder: TaskReminder? = nil,
         color: TaskColorToken = .lilac,
         createdAt: Date = .now,
         updatedAt: Date? = nil,
@@ -45,6 +47,7 @@ public nonisolated struct DWTask: Identifiable, Hashable, Codable, Sendable {
         }
         self.schedule = schedule
         self.timeWindow = timeWindow
+        self.reminder = reminder
         self.color = color
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -57,7 +60,7 @@ public nonisolated struct DWTask: Identifiable, Hashable, Codable, Sendable {
     // MARK: - Codable
 
     private enum CodingKeys: String, CodingKey {
-        case id, title, description, schedule, timeWindow, color, createdAt, updatedAt, archivedAt
+        case id, title, description, schedule, timeWindow, reminder, color, createdAt, updatedAt, archivedAt
     }
 
     public init(from decoder: any Decoder) throws {
@@ -67,6 +70,7 @@ public nonisolated struct DWTask: Identifiable, Hashable, Codable, Sendable {
             description: c.decodeIfPresent(String.self, forKey: .description),
             schedule: c.decode(TaskSchedule.self, forKey: .schedule),
             timeWindow: c.decodeIfPresent(TimeWindow.self, forKey: .timeWindow),
+            reminder: c.decodeIfPresent(TaskReminder.self, forKey: .reminder),
             color: c.decode(TaskColorToken.self, forKey: .color),
             createdAt: c.decode(Date.self, forKey: .createdAt),
             updatedAt: c.decode(Date.self, forKey: .updatedAt),

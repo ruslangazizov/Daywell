@@ -291,7 +291,7 @@ struct TodayDataFlowTests {
         await store.send(.todayButtonTapped)
     }
 
-    @Test func nowButtonPreservesDateStripIdentityWhenTodayIsAlreadySelected() async {
+    @Test func nowButtonResetsDateStripOnEveryTapWhenTodayIsAlreadySelected() async {
         // Different UTC dates, but the same calendar day in Belgrade.
         let selected = date(24, hour: 0, minute: 30)
         let now = date(24, hour: 17)
@@ -300,15 +300,17 @@ struct TodayDataFlowTests {
         } withDependencies: {
             $0.date = .constant(now)
             $0.calendar = calendar
+            $0.uuid = .incrementing
         }
-        let resetID = store.state.dateStripResetID
         await store.send(.todayButtonTapped) {
+            $0.dateStripResetID = UUID(0)
             $0.now = now
             $0.selectedDate = now
         }
-        #expect(store.state.dateStripResetID == resetID)
         #expect(store.state.timeline.scrollTargetID == "today-hour-17")
-        await store.send(.todayButtonTapped)
+        await store.send(.todayButtonTapped) {
+            $0.dateStripResetID = UUID(1)
+        }
     }
 
     @Test func midnightFollowsTodayButDoesNotChangeAnExplicitlySelectedPastDay() async throws {

@@ -23,6 +23,7 @@ public struct TasksReducer: Reducer {
         case planTaskAtHour(Int)
         case editTask(DWTask)
         case taskEditor(PresentationAction<TaskEditorReducer.Action>)
+        case openReminder(TaskOccurrenceID)
         case detailsChanged(TaskOccurrenceID?)
         case editDetailsTapped
         case completionChanged(TaskOccurrenceID, Bool)
@@ -81,6 +82,10 @@ public struct TasksReducer: Reducer {
                     state.tasksOccurrences = occurrences
                     state.hasLoadedData = true
                     state.errorMessage = nil
+                    if state.taskEditor == nil, let id = state.pendingReminderID {
+                        state.pendingReminderID = nil
+                        openReminder(id, in: &state)
+                    }
                 case .failure(let error):
                     state.errorMessage = error.localizedDescription
                 }
@@ -88,9 +93,9 @@ public struct TasksReducer: Reducer {
 
             case .todayButtonTapped:
                 let now = dateGenerator.now
-                if !calendar.isDate(state.selectedDate, inSameDayAs: now) {
-                    state.dateStripResetID = uuid()
-                }
+                // Browsing weeks does not change selectedDate, so every Now tap
+                // must return the pager to the current week.
+                state.dateStripResetID = uuid()
                 state.now = now
                 updateDate(now, in: &state)
                 if state.todayLayout == .zones {
@@ -102,6 +107,18 @@ public struct TasksReducer: Reducer {
                 guard state.selectedDate != date else { return .none }
 
                 updateDate(date, in: &state)
+                return .none
+
+            case .openReminder(let id):
+                guard state.taskEditor == nil else {
+                    state.pendingReminderID = id
+                    return .none
+                }
+                guard state.hasLoadedData, !state.isLoading, !state.storeRefreshPending else {
+                    state.pendingReminderID = id
+                    return .send(.storeChanged)
+                }
+                openReminder(id, in: &state)
                 return .none
 
             case .detailsChanged(let id):
@@ -148,9 +165,17 @@ public struct TasksReducer: Reducer {
                 state.tasks.removeAll { $0.id == task.id }
                 state.tasks.append(task)
                 state.taskEditor = nil
+                if let id = state.pendingReminderID {
+                    state.pendingReminderID = nil
+                    return .send(.openReminder(id))
+                }
                 return state.storeRefreshPending ? .send(.storeChanged) : .none
 
             case .taskEditor(.dismiss):
+                if let id = state.pendingReminderID {
+                    state.pendingReminderID = nil
+                    return .send(.openReminder(id))
+                }
                 return state.storeRefreshPending ? .send(.storeChanged) : .none
 
             case .taskEditor:
@@ -252,6 +277,22 @@ public struct TasksReducer: Reducer {
         } catch: { error, send in
             await send(.completionSaveResponse(id, previous: previous, saved: record, .failure(error)))
         }
+    }
+
+    private func openReminder(_ id: TaskOccurrenceID, in state: inout State) {
+        guard state.tasks.contains(where: {
+            $0.id == id.taskID && !$0.isArchived && $0.schedule.occurs(on: id.day)
+        }) else { return }
+
+        var gregorian = Calendar(identifier: .gregorian)
+        gregorian.timeZone = calendar.timeZone
+        var components = id.day.components
+        components.hour = 12
+        guard let date = gregorian.date(from: components) else { return }
+
+        updateDate(date, in: &state)
+        state.detailsID = id
+        state.habitStatisticsID = nil
     }
 
     private func updateDate(_ date: Date, in state: inout State) {

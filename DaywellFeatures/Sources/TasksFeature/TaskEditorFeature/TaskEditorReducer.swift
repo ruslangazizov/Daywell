@@ -12,6 +12,7 @@ public struct TaskEditorReducer: Reducer {
         let initialDraft: TaskEditorDraft
         let originalTask: DWTask?
         let calendar: Calendar
+        @SharedReader(Preferences.taskRemindersEnabled) var taskRemindersEnabled
         @SharedReader(Preferences.todayLayout) var todayLayout
         @SharedReader(Preferences.dailyZones) var zones
         var isSaving = false
@@ -22,7 +23,9 @@ public struct TaskEditorReducer: Reducer {
             self.originalTask = nil
             self.id = id
             self.calendar = calendar
-            let draft = TaskEditorDraft(selectedDate: selectedDate, now: now, calendar: calendar, duration: duration)
+            var draft = TaskEditorDraft(selectedDate: selectedDate, now: now, calendar: calendar, duration: duration)
+            @SharedReader(Preferences.taskRemindersEnabled) var remindersEnabled
+            if remindersEnabled { draft.reminderOption = .atStart }
             self.draft = draft
             initialDraft = draft
         }
@@ -64,6 +67,7 @@ public struct TaskEditorReducer: Reducer {
     @CasePathable
     public enum Action: BindableAction {
         case binding(BindingAction<State>)
+        case timeWindowChanged(Bool)
         case cancelTapped
         case saveTapped
         case saveResponse(Result<DWTask, Error>)
@@ -85,6 +89,18 @@ public struct TaskEditorReducer: Reducer {
         Reduce { state, action in
             switch action {
             case .binding:
+                state.saveError = nil
+                return .none
+            case .timeWindowChanged(let enabled):
+                state.draft.hasTimeWindow = enabled
+                if !state.draft.hasTimeWindow && state.draft.reminderOption.needsTimeWindow {
+                    let lead: Int
+                    if case .beforeStart(let value) = state.draft.reminder { lead = value.rawValue }
+                    else { lead = 0 }
+                    let minutes = (state.draft.start.minutesSinceMidnight - lead + 1440) % 1440
+                    state.draft.reminderTime = try! LocalTime(hour: minutes / 60, minute: minutes % 60)
+                    state.draft.reminderOption = .customTime
+                }
                 state.saveError = nil
                 return .none
             case .cancelTapped:

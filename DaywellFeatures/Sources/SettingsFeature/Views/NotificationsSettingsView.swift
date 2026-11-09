@@ -4,6 +4,7 @@ import DesignSystem
 struct NotificationsSettingsView: View {
     @Binding var taskRemindersEnabled: Bool
     @Binding var appIconBadgeEnabled: Bool
+    var isRequestingNotifications = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -14,6 +15,8 @@ struct NotificationsSettingsView: View {
                     subtitle: "On this device"
                 )
             }
+            .disabled(isRequestingNotifications)
+            .accessibilityIdentifier(Accessibility.taskReminders)
             .padding(.vertical, 16)
 
             Divider()

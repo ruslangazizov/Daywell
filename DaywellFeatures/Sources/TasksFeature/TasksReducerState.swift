@@ -19,6 +19,7 @@ extension TasksReducer {
         var calendar: Calendar
         var hasLoadedData: Bool
         var savingOccurrenceIDs: Set<TaskOccurrenceID> = []
+        var pendingReminderID: TaskOccurrenceID?
         var detailsID: TaskOccurrenceID?
         public internal(set) var habitStatisticsID: UUID?
         var isLoading = false

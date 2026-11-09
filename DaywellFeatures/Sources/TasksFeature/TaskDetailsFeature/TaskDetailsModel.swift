@@ -37,6 +37,30 @@ struct TaskDetailsModel {
     var canComplete: Bool { !task.isArchived && task.schedule.occurs(on: id.day) }
     var repeatLabel: String { task.schedule.recurrence?.pattern.stringValue ?? "Does not repeat" }
     var dayLabel: String { dateLabel(id.day) }
+    var reminderLabel: String? {
+        switch task.reminder {
+        case nil:
+            return nil
+        case .atStart:
+            return "At start"
+        case .beforeStart(let lead):
+            return lead == .oneHour ? "1 hour before start" : "\(lead.rawValue) minutes before start"
+        case .atTime(let time):
+            // Format the saved wall-clock time without daylight-saving adjustments.
+            var referenceCalendar = Calendar(identifier: .gregorian)
+            referenceCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            let date = referenceCalendar.date(from: DateComponents(
+                year: 2001, month: 1, day: 15, hour: time.hour, minute: time.minute
+            ))!
+            let formatter = DateFormatter()
+            formatter.locale = calendar.locale ?? .current
+            formatter.calendar = referenceCalendar
+            formatter.timeZone = referenceCalendar.timeZone
+            formatter.dateStyle = .none
+            formatter.timeStyle = .short
+            return "At \(formatter.string(from: date))"
+        }
+    }
     var status: String {
         if isCompleted {
             return id.day == (try? LocalDate(now, in: calendar.timeZone))

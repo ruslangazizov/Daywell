@@ -18,7 +18,7 @@ struct SettingsPersistenceTests {
         #expect(state.firstDayOfWeek == .system)
         #expect(state.taskDurations == TaskDuration.defaults)
         #expect(state.defaultTaskDuration == TaskDuration(minutes: 30))
-        #expect(state.taskRemindersEnabled)
+        #expect(!state.taskRemindersEnabled)
         #expect(state.appIconBadgeEnabled)
     }
 

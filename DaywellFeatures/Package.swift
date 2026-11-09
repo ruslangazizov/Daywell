@@ -15,10 +15,7 @@ let package = Package(
         .iOS(.v26)
     ],
     products: [
-        .library(name: "AppRootFeature", targets: ["AppRootFeature"]),
-        .library(name: "TasksFeature", targets: ["TasksFeature"]),
-        .library(name: "StatisticsFeature", targets: ["StatisticsFeature"]),
-        .library(name: "SettingsFeature", targets: ["SettingsFeature"]),
+        .library(name: "AppRootFeature", targets: ["AppRootFeature"])
     ],
     dependencies: [
         .package(path: "../DaywellCore"),
@@ -34,6 +31,8 @@ let package = Package(
                 "TasksFeature",
                 "StatisticsFeature",
                 "SettingsFeature",
+                .product(name: "Clients", package: "DaywellCore"),
+                .product(name: "Persistence", package: "DaywellCore"),
                 .product(name: "DesignSystem", package: "DaywellCore"),
                 .product(
                     name: "ComposableArchitecture",

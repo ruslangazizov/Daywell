@@ -3,7 +3,7 @@ Update this file when something significant in it becomes outdated.
 ## Project and status
 
 - Tasks/occurrences use SwiftData with private CloudKit sync through `TasksClient` and `OccurrencesClient`. `ICloudClient` observes account and transfer status; successful imports refresh Today and Statistics.
-- Reminder scheduling and badge updates are unfinished.
+- Task reminders use device-local notification authorization, optional reminder settings on tasks, and a rolling queue of the nearest 64 future notifications.
 - Statistics reads the same clients and shows complete-day totals, period charts, eligible hour/weekday patterns, and active-habit completion counts.
 
 ## Code map and conventions

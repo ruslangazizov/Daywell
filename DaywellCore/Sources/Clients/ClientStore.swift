@@ -21,9 +21,16 @@ enum ClientStore {
             #endif
         } else {
             #if DEBUG && targetEnvironment(simulator)
-            store = try simulatorStore()
+            if ProcessInfo.processInfo.environment["DAYWELL_ENABLE_CLOUD_SYNC"] == "true" {
+                _ = ICloudMonitor.shared
+                store = try TaskStore(cloudSync: true)
+            } else {
+                store = try simulatorStore()
+            }
             #else
-            store = try TaskStore()
+            // Register observers before SwiftData starts CloudKit setup.
+            _ = ICloudMonitor.shared
+            store = try TaskStore(cloudSync: true)
             #endif
         }
         liveStore = store
@@ -31,9 +38,9 @@ enum ClientStore {
     }
 
     #if DEBUG && targetEnvironment(simulator)
-    static func simulatorStore() throws -> TaskStore {
+    static func simulatorStore(in customDirectory: URL? = nil) throws -> TaskStore {
         // Keep development data across launches without opening the production store.
-        let directory = try FileManager.default.url(
+        let directory = try customDirectory ?? FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
             appropriateFor: nil,

@@ -4,6 +4,7 @@ import Persistence
 
 struct ICloudSettingsView: View {
     let status: ICloudSyncStatus
+    let isChecking: Bool
     let lastConfirmedSync: Date?
     let onCheckStatus: () -> Void
     @Environment(\.colorScheme) private var colorScheme
@@ -11,9 +12,16 @@ struct ICloudSettingsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 10) {
-                Text(status.title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(DWColor.label)
+                HStack(spacing: 10) {
+                    Text(status.title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(DWColor.label)
+                        .accessibilityIdentifier(Accessibility.iCloudStatus)
+                    if status == .syncing {
+                        ProgressView()
+                            .tint(DWColor.accent(colorScheme))
+                    }
+                }
 
                 Text(status.description)
                     .font(.footnote)
@@ -36,33 +44,34 @@ struct ICloudSettingsView: View {
                         lastSyncRow
                     }
                 }
-            } else if status == .syncing, lastConfirmedSync != nil {
+            } else if lastConfirmedSync != nil || status == .noConfirmedSync {
                 lastSyncRow
             }
 
             Divider()
                 .overlay(DWColor.separator)
 
-            if status.isBusy {
+            if isChecking || status == .checking {
                 HStack(spacing: 10) {
                     ProgressView()
                         .tint(DWColor.accent(colorScheme))
 
-                    Text(status == .checking ? "Please wait" : "Automatic sync")
+                    Text("Checking status…")
                         .foregroundStyle(DWColor.secondary(colorScheme))
                 }
                 .font(.body)
-                .frame(minHeight: 44)
+                .frame(minHeight: 20)
                 .accessibilityElement(children: .combine)
             } else {
                 Button(action: onCheckStatus) {
                     Text("Check status")
                         .frame(
-                            minHeight: 18,
+                            minHeight: 20,
                             alignment: .leading
                         )
                         .contentShape(Rectangle())
                 }
+                .accessibilityIdentifier(Accessibility.checkICloudStatus)
                 .buttonStyle(.plain)
                 .font(.body)
                 .foregroundStyle(DWColor.accent(colorScheme))

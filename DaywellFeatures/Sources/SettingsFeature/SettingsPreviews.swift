@@ -39,6 +39,7 @@ private struct ICloudStatesPreview: View {
                 ForEach(ICloudSyncStatus.allCases) { status in
                     ICloudSettingsView(
                         status: status,
+                        isChecking: false,
                         lastConfirmedSync: status == .available || status == .syncing
                             ? Date(timeIntervalSince1970: 1_792_828_860)
                             : nil,

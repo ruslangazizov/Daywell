@@ -15,6 +15,7 @@ public struct TasksReducer: Reducer {
         }
 
         case task
+        case storeChanged
         case dataResponse(Result<Data, Error>)
         case todayButtonTapped
         case dateStripTapped(Date)
@@ -43,13 +44,18 @@ public struct TasksReducer: Reducer {
     public var body: some Reducer<State, Action> {
         Reduce { state, action in
             switch action {
-            case .task:
-                guard !state.hasLoadedData, !state.isLoading else { return .none }
-
+            case .task, .storeChanged:
+                if case .storeChanged = action {
+                    state.storeRefreshPending = true
+                    guard !state.isLoading, state.savingOccurrenceIDs.isEmpty, state.taskEditor == nil else { return .none }
+                } else {
+                    guard !state.hasLoadedData, !state.isLoading else { return .none }
+                    state.now = dateGenerator.now
+                    updateDate(dateGenerator.now, in: &state)
+                }
+                state.storeRefreshPending = false
                 state.isLoading = true
                 state.errorMessage = nil
-                state.now = dateGenerator.now
-                updateDate(dateGenerator.now, in: &state)
 
                 return .run { send in
                     async let tasks = tasksClient.fetch()
@@ -67,13 +73,18 @@ public struct TasksReducer: Reducer {
                 switch result {
                 case .success(let data):
                     state.tasks = data.tasks
-                    state.tasksOccurrences = data.tasksOccurrences
+                    // Keep optimistic toggles while their local writes are in flight.
+                    var occurrences = data.tasksOccurrences
+                    for id in state.savingOccurrenceIDs {
+                        occurrences[id: id] = state.tasksOccurrences[id: id]
+                    }
+                    state.tasksOccurrences = occurrences
                     state.hasLoadedData = true
                     state.errorMessage = nil
                 case .failure(let error):
                     state.errorMessage = error.localizedDescription
                 }
-                return .none
+                return state.storeRefreshPending ? .send(.storeChanged) : .none
 
             case .todayButtonTapped:
                 let now = dateGenerator.now
@@ -137,7 +148,10 @@ public struct TasksReducer: Reducer {
                 state.tasks.removeAll { $0.id == task.id }
                 state.tasks.append(task)
                 state.taskEditor = nil
-                return .none
+                return state.storeRefreshPending ? .send(.storeChanged) : .none
+
+            case .taskEditor(.dismiss):
+                return state.storeRefreshPending ? .send(.storeChanged) : .none
 
             case .taskEditor:
                 return .none
@@ -181,7 +195,7 @@ public struct TasksReducer: Reducer {
                     state.errorMessage = error.localizedDescription
                 }
                 state.savingOccurrenceIDs.remove(id)
-                return .none
+                return state.storeRefreshPending ? .send(.storeChanged) : .none
 
             case .moreStatsButtonTapped:
                 guard let id = state.detailsID,

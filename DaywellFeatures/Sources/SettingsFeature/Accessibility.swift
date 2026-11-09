@@ -1,4 +1,6 @@
 public nonisolated enum Accessibility {
+    public static let checkICloudStatus = "settings.icloud.checkStatus"
+    public static let iCloudStatus = "settings.icloud.status"
     public static let addZone = "settings.zones.add"
     public static let restoreZones = "settings.zones.restore"
     public static let zoneName = "settings.zones.name"

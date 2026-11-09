@@ -2,29 +2,37 @@ import Domain
 import Foundation
 import SwiftData
 
-/// Owns the context shared by both clients. Only domain values leave this boundary.
 @MainActor
 public final class TaskStore {
-    private let context: ModelContext
+    public nonisolated static let cloudContainerIdentifier = "iCloud.com.ruslangazizov.Daywell"
+    private let container: ModelContainer
 
-    public init(inMemory: Bool = false, url: URL? = nil) throws {
+    /// Cloud sync is explicit so temporary stores, previews and tests stay local.
+    public init(inMemory: Bool = false, url: URL? = nil, cloudSync: Bool = false) throws {
         let schema = Schema([StoredTask.self, StoredOccurrence.self])
+        let cloud: ModelConfiguration.CloudKitDatabase = cloudSync && !inMemory
+            ? .private(Self.cloudContainerIdentifier) : .none
         let configuration: ModelConfiguration
         if let url {
-            configuration = ModelConfiguration("Daywell", schema: schema, url: url, cloudKitDatabase: .none)
+            configuration = ModelConfiguration("Daywell", schema: schema, url: url, cloudKitDatabase: cloud)
         } else {
             configuration = ModelConfiguration(
                 "Daywell", schema: schema, isStoredInMemoryOnly: inMemory,
-                groupContainer: .none, cloudKitDatabase: .none
+                groupContainer: .none, cloudKitDatabase: cloud
             )
         }
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        context = ModelContext(container)
+        container = try ModelContainer(for: schema, configurations: [configuration])
+    }
+
+    // A fresh context sees CloudKit imports instead of retaining cached model instances.
+    private func makeContext() -> ModelContext {
+        let context = ModelContext(container)
         context.autosaveEnabled = false
+        return context
     }
 
     public func fetchTasks() throws -> [DWTask] {
-        try context.fetch(FetchDescriptor<StoredTask>()).map {
+        try taskWinners(in: makeContext()).values.filter { !$0.isDeleted }.map {
             try JSONDecoder().decode(DWTask.self, from: $0.payload)
         }.sorted {
             if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
@@ -32,31 +40,51 @@ public final class TaskStore {
         }
     }
 
-    /// Inserts or replaces the task with this ID, preserving its occurrence history.
     public func saveTask(_ task: DWTask) throws {
-        let payload = try JSONEncoder().encode(task)
-        try write {
-            if let stored = try storedTask(task.id) {
-                stored.payload = payload
-            } else {
-                context.insert(StoredTask(id: task.id, payload: payload))
+        let payload = try Self.encode(task)
+        try write { context in
+            let id = task.id
+            let rows = try context.fetch(FetchDescriptor<StoredTask>(predicate: #Predicate { $0.id == id }))
+            let now = Date.now
+            if rows.isEmpty { context.insert(StoredTask(id: id, payload: payload, modifiedAt: now)) }
+            for row in rows {
+                row.payload = payload
+                row.modifiedAt = now
+                row.isDeleted = false
             }
         }
     }
 
-    /// Permanently deletes a task and its recorded outcomes in one save.
+    /// Tombstones prevent a late-arriving duplicate from resurrecting a deleted task.
     public func deleteTask(_ id: DWTask.ID) throws {
-        try write {
-            let occurrences = try context.fetch(FetchDescriptor<StoredOccurrence>(
-                predicate: #Predicate { $0.taskID == id }
-            ))
-            for occurrence in occurrences { context.delete(occurrence) }
-            if let task = try storedTask(id) { context.delete(task) }
+        try write { context in
+            let rows = try context.fetch(FetchDescriptor<StoredTask>(predicate: #Predicate { $0.id == id }))
+            let now = Date.now
+            if rows.isEmpty {
+                let row = StoredTask(id: id, payload: Data(), modifiedAt: now)
+                row.isDeleted = true
+                context.insert(row)
+            }
+            for row in rows {
+                row.isDeleted = true
+                row.modifiedAt = now
+                row.payload = Data()
+            }
+            let occurrences = try context.fetch(FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.taskID == id }))
+            for row in occurrences {
+                row.isDeleted = true
+                row.modifiedAt = now
+                row.payload = Data()
+            }
         }
     }
 
     public func fetchOccurrences() throws -> [OccurrenceRecord] {
-        try context.fetch(FetchDescriptor<StoredOccurrence>()).map {
+        let context = makeContext()
+        let taskIDs = Set(try taskWinners(in: context).values.filter { !$0.isDeleted }.map(\.id))
+        let rows = try context.fetch(FetchDescriptor<StoredOccurrence>())
+        let winners = Dictionary(grouping: rows, by: \.key).values.compactMap { $0.max(by: Self.isOlder) }
+        return try winners.filter { !$0.isDeleted && taskIDs.contains($0.taskID) }.map {
             try JSONDecoder().decode(OccurrenceRecord.self, from: $0.payload)
         }.sorted {
             if $0.day != $1.day { return $0.day < $1.day }
@@ -64,50 +92,71 @@ public final class TaskStore {
         }
     }
 
-    /// One outcome per task and calendar day; saving again replaces that outcome.
     public func saveOccurrence(_ occurrence: OccurrenceRecord) throws {
-        let payload = try JSONEncoder().encode(occurrence)
-        try write {
-            guard try storedTask(occurrence.taskID) != nil else {
+        let payload = try Self.encode(occurrence)
+        try write { context in
+            guard let task = try taskWinners(in: context)[occurrence.taskID], !task.isDeleted else {
                 throw TaskStoreError.taskNotFound(occurrence.taskID)
             }
-            if let stored = try storedOccurrence(occurrence.id) {
-                stored.payload = payload
-            } else {
-                context.insert(StoredOccurrence(
-                    key: Self.key(occurrence.id), taskID: occurrence.taskID, payload: payload
-                ))
+            let key = Self.key(occurrence.id)
+            let rows = try context.fetch(FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.key == key }))
+            let now = Date.now
+            if rows.isEmpty {
+                context.insert(StoredOccurrence(key: key, taskID: occurrence.taskID, payload: payload, modifiedAt: now))
+            }
+            for row in rows {
+                row.payload = payload
+                row.modifiedAt = now
+                row.isDeleted = false
             }
         }
     }
 
-    /// Removing the record restores the unrecorded state (it does not mean skipped).
     public func deleteOccurrence(_ id: TaskOccurrenceID) throws {
-        try write {
-            if let occurrence = try storedOccurrence(id) { context.delete(occurrence) }
+        try write { context in
+            let key = Self.key(id)
+            let rows = try context.fetch(FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.key == key }))
+            let now = Date.now
+            if rows.isEmpty {
+                let row = StoredOccurrence(key: key, taskID: id.taskID, payload: Data(), modifiedAt: now)
+                row.isDeleted = true
+                context.insert(row)
+            }
+            for row in rows {
+                row.isDeleted = true
+                row.modifiedAt = now
+                row.payload = Data()
+            }
         }
     }
 
-    private func storedTask(_ id: UUID) throws -> StoredTask? {
-        var query = FetchDescriptor<StoredTask>(predicate: #Predicate { $0.id == id })
-        query.fetchLimit = 1
-        return try context.fetch(query).first
+    private func taskWinners(in context: ModelContext) throws -> [UUID: StoredTask] {
+        let rows = try context.fetch(FetchDescriptor<StoredTask>())
+        return Dictionary(grouping: rows, by: \.id).compactMapValues { $0.max(by: Self.isOlder) }
     }
 
-    private func storedOccurrence(_ id: TaskOccurrenceID) throws -> StoredOccurrence? {
-        let key = Self.key(id)
-        var query = FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.key == key })
-        query.fetchLimit = 1
-        return try context.fetch(query).first
+    // CloudKit does not support unique constraints. Resolve logical duplicates identically
+    // on every device, including equal timestamps; retain rows to avoid delete/update races.
+    private static func isOlder<T: SyncRecord>(_ lhs: T, _ rhs: T) -> Bool {
+        if lhs.modifiedAt != rhs.modifiedAt { return lhs.modifiedAt < rhs.modifiedAt }
+        if lhs.isDeleted != rhs.isDeleted { return !lhs.isDeleted }
+        return lhs.payload.lexicographicallyPrecedes(rhs.payload)
     }
 
-    private static func key(_ id: TaskOccurrenceID) -> String {
+    private static func encode<T: Encodable>(_ value: T) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(value)
+    }
+
+    static func key(_ id: TaskOccurrenceID) -> String {
         "\(id.taskID.uuidString)/\(id.day.year)/\(id.day.month)/\(id.day.day)"
     }
 
-    private func write(_ mutation: () throws -> Void) throws {
+    private func write(_ mutation: (ModelContext) throws -> Void) throws {
+        let context = makeContext()
         do {
-            try mutation()
+            try mutation(context)
             try context.save()
         } catch {
             context.rollback()
@@ -118,36 +167,41 @@ public final class TaskStore {
 
 public nonisolated enum TaskStoreError: LocalizedError, Equatable {
     case taskNotFound(UUID)
-
-    public var errorDescription: String? {
-        switch self {
-        case .taskNotFound: "The task no longer exists."
-        }
-    }
+    public var errorDescription: String? { "The task no longer exists." }
 }
 
-// Keep validated domain models independent of SwiftData. Codable payloads preserve
-// schedules and overnight windows; separate keys support unique upserts and deletion.
-@Model
-final class StoredTask {
-    @Attribute(.unique) var id: UUID
-    var payload: Data
+private protocol SyncRecord {
+    var payload: Data { get }
+    var modifiedAt: Date { get }
+    var isDeleted: Bool { get }
+}
 
-    init(id: UUID, payload: Data) {
+@Model
+final class StoredTask: SyncRecord {
+    var id: UUID = UUID()
+    var payload: Data = Data()
+    var modifiedAt: Date = Date.distantPast
+    var isDeleted: Bool = false
+
+    init(id: UUID, payload: Data, modifiedAt: Date = .distantPast) {
         self.id = id
         self.payload = payload
+        self.modifiedAt = modifiedAt
     }
 }
 
 @Model
-final class StoredOccurrence {
-    @Attribute(.unique) var key: String
-    var taskID: UUID
-    var payload: Data
+final class StoredOccurrence: SyncRecord {
+    var key: String = ""
+    var taskID: UUID = UUID()
+    var payload: Data = Data()
+    var modifiedAt: Date = Date.distantPast
+    var isDeleted: Bool = false
 
-    init(key: String, taskID: UUID, payload: Data) {
+    init(key: String, taskID: UUID, payload: Data, modifiedAt: Date = .distantPast) {
         self.key = key
         self.taskID = taskID
         self.payload = payload
+        self.modifiedAt = modifiedAt
     }
 }

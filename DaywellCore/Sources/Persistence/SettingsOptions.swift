@@ -46,7 +46,7 @@ public nonisolated struct TaskDuration: Codable, Hashable, Identifiable, Sendabl
     }
 }
 
-/// Presentation state only. A future client will supply observed iCloud status.
+/// Account availability and observed CloudKit activity supplied by ICloudClient.
 public enum ICloudSyncStatus: String, CaseIterable, Identifiable, Sendable {
     case notChecked
     case checking
@@ -56,6 +56,10 @@ public enum ICloudSyncStatus: String, CaseIterable, Identifiable, Sendable {
     case waitingForConnection
     case needsAttention
     case noConfirmedSync
+    case restricted
+    case temporarilyUnavailable
+    case storageFull
+    case localOnly
 
     public var id: Self { self }
 
@@ -68,6 +72,10 @@ public enum ICloudSyncStatus: String, CaseIterable, Identifiable, Sendable {
         case .signedOut: "Sign in to iCloud"
         case .waitingForConnection: "Waiting for connection"
         case .needsAttention: "Sync needs attention"
+        case .restricted: "iCloud access restricted"
+        case .temporarilyUnavailable: "iCloud temporarily unavailable"
+        case .storageFull: "iCloud storage is full"
+        case .localOnly: "Stored on this device"
         case .noConfirmedSync: "No confirmed sync yet"
         }
     }
@@ -88,6 +96,14 @@ public enum ICloudSyncStatus: String, CaseIterable, Identifiable, Sendable {
             "Your changes are saved on this device. Sync will resume automatically."
         case .needsAttention:
             "iCloud could not finish the last sync. Your changes are saved on this device."
+        case .restricted:
+            "This account cannot use iCloud. Check account restrictions in your iPhone settings."
+        case .temporarilyUnavailable:
+            "iCloud is temporarily unavailable. Your changes remain saved on this device. Try checking again later."
+        case .storageFull:
+            "Free up iCloud storage in your iPhone settings to resume syncing. Your changes remain saved on this device."
+        case .localOnly:
+            "This preview or test build uses local storage. iCloud sync is disabled."
         case .noConfirmedSync:
             "iCloud is available. No completed exchange has been observed yet."
         }

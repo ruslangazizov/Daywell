@@ -67,6 +67,8 @@ struct SettingsPersistenceTests {
             SettingsReducer()
         } withDependencies: {
             $0.userInterfaceStyleClient.override = { await styleClient.override(to: $0) }
+            $0.iCloudClient.observe = { AsyncStream { $0.finish() } }
+            $0.iCloudClient.refresh = { .init(status: .signedOut) }
         }
 
         await store.send(.didChooseAppearance(.dark)) {
@@ -152,9 +154,17 @@ struct SettingsPersistenceTests {
             SettingsReducer()
         } withDependencies: {
             $0.userInterfaceStyleClient.override = { await styleClient.override(to: $0) }
+            $0.iCloudClient.observe = { AsyncStream { $0.finish() } }
+            $0.iCloudClient.refresh = { .init(status: .signedOut) }
         }
 
-        await store.send(.task).finish()
+        await store.send(.task)
+        await store.receive(\.didTapCheckICloudStatus) { $0.isCheckingICloud = true }
+        await store.receive(\.iCloudCheckResponse) {
+            $0.isCheckingICloud = false
+            $0.iCloudStatus = .signedOut
+        }
+        await store.finish()
         #expect(await styleClient.styles == [.dark])
     }
 }

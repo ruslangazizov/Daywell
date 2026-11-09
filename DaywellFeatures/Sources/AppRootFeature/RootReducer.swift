@@ -21,6 +21,7 @@ public struct RootReducer: Reducer {
     @CasePathable
     public enum Action {
         case tabSelected(Tab)
+        case becameActive
         case tasks(TasksReducer.Action)
         case statistics(StatisticsReducer.Action)
         case settings(SettingsReducer.Action)
@@ -41,6 +42,14 @@ public struct RootReducer: Reducer {
 
         Reduce { state, action in
             switch action {
+            case .becameActive:
+                return .merge(
+                    .send(.settings(.didTapCheckICloudStatus)),
+                    .send(.tasks(.storeChanged)),
+                    .send(.statistics(.task))
+                )
+            case .settings(.iCloudDataChanged):
+                return .merge(.send(.tasks(.storeChanged)), .send(.statistics(.task)))
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none

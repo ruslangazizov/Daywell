@@ -7,6 +7,7 @@ import DesignSystem
 
 public struct AppView: View {
     @Bindable private var store: StoreOf<RootReducer>
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.colorScheme) private var colorScheme
 
     public init(store: StoreOf<RootReducer>) {
@@ -25,6 +26,9 @@ public struct AppView: View {
         .tint(DWColor.accent(colorScheme))
         .task {
             await store.send(.settings(.task)).finish()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { store.send(.becameActive) }
         }
     }
 

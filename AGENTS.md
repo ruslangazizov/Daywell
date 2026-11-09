@@ -2,8 +2,8 @@ Update this file when something significant in it becomes outdated.
 
 ## Project and status
 
-- Tasks/occurrences are stored locally with SwiftData through `TasksClient` and `OccurrencesClient`.
-- Reminder scheduling, badge updates and iCloud integration are unfinished.
+- Tasks/occurrences use SwiftData with private CloudKit sync through `TasksClient` and `OccurrencesClient`. `ICloudClient` observes account and transfer status; successful imports refresh Today and Statistics.
+- Reminder scheduling and badge updates are unfinished.
 - Statistics reads the same clients and shows complete-day totals, period charts, eligible hour/weekday patterns, and active-habit completion counts.
 
 ## Code map and conventions
@@ -12,7 +12,7 @@ Update this file when something significant in it becomes outdated.
 - `DaywellFeatures/Sources/AppRootFeature`: bootstrap, root reducer, tab composition. Feature targets: `TasksFeature`, `StatisticsFeature`, `SettingsFeature`; keep them independent of one another.
 - `TasksNavigationView` wraps the app's `TabView` and owns task-detail navigation, the habit-statistics push, and the task-editor sheet. `AppView` supplies `HabitStatisticsView` so Tasks and Statistics stay independent. Details push over the entire tab screen, so the tab bar moves with Today during forward/back transitions instead of toggling visibility. `TasksTodayView` is the root content without its own navigation stack; Settings and Statistics retain their independent navigation containers.
 - `DaywellCore/Sources/Domain`: validated value models and scheduling rules (`DWTask`, `TaskSchedule`, `LocalDate`, `TimeWindow`, `OccurrenceRecord`). No SwiftUI, TCA or SwiftData business-model dependencies.
-- `DaywellCore/Sources/Clients`: injectable async dependencies `TasksClient` and `OccurrencesClient`.
+- `DaywellCore/Sources/Clients`: injectable async dependencies `TasksClient`, `OccurrencesClient` and `ICloudClient`.
 - `DaywellCore/Sources/Persistence`: preferences, settings options and `TaskStore`.
 - `DaywellCore/Sources/DesignSystem`: shared SwiftUI components, `DWColor`, appearance and layout constants. Reuse these and native iOS controls.
 - Follow existing TCA patterns: `Reducer`, `@ObservableState`, `@CasePathable`, scoped stores, dependency-backed effects. Views send actions; reducers own mutations and data preparation for Views. Existing Today view models are derived display projections, not separate mutable stores. Business logic should always be in reducers (or its state), not Views. For complicated logic introduce separate stateless ViewModelBuilder converter type.

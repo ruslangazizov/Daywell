@@ -22,6 +22,9 @@ public struct SettingsReducer: Reducer {
         @Shared(Preferences.appIconBadgeEnabled) var appIconBadgeEnabled
         var iCloudStatus: ICloudSyncStatus
         var lastConfirmedSync: Date?
+        var isCheckingICloud = false
+        var iCloudDataRevision = 0
+        var iCloudSnapshotVersion = 0
 
         var sortedDailyZones: [DayZone] {
             dailyZones.sorted { $0.window.start < $1.window.start }
@@ -48,6 +51,9 @@ public struct SettingsReducer: Reducer {
         case didChangeTaskRemindersEnabled(Bool)
         case didChangeAppIconBadgeEnabled(Bool)
         case didTapCheckICloudStatus
+        case iCloudStatusChanged(ICloudSnapshot)
+        case iCloudCheckResponse(ICloudSnapshot)
+        case iCloudDataChanged
 
         @CasePathable
         public enum TaskDurationAction {
@@ -73,6 +79,9 @@ public struct SettingsReducer: Reducer {
     }
 
     @Dependency(\.userInterfaceStyleClient) var userInterfaceStyleClient
+    @Dependency(\.iCloudClient) var iCloudClient
+    private nonisolated enum CancelID: Hashable, Sendable { case observation, check }
+
     @Dependency(\.uuid) var uuid
 
     public init() {}
@@ -81,9 +90,17 @@ public struct SettingsReducer: Reducer {
         Reduce { state, action in
             switch action {
             case .task:
-                return .run { [appearance = state.appearance] _ in
-                    await userInterfaceStyleClient.override(appearance.userInterfaceStyle)
-                }
+                return .merge(
+                    .run { [appearance = state.appearance] _ in
+                        await userInterfaceStyleClient.override(appearance.userInterfaceStyle)
+                    },
+                    .run { send in
+                        for await snapshot in await iCloudClient.observe() {
+                            await send(.iCloudStatusChanged(snapshot))
+                        }
+                    }.cancellable(id: CancelID.observation, cancelInFlight: true),
+                    .send(.didTapCheckICloudStatus)
+                )
 
             case .didChooseAppearance(let appearance):
                 state.$appearance.withLock { $0 = appearance }
@@ -178,8 +195,23 @@ public struct SettingsReducer: Reducer {
                 return .none
 
             case .didTapCheckICloudStatus:
-                // TODO: request observed account/sync status from an iCloud client.
-                // Keep the current status until a real response is available.
+                guard !state.isCheckingICloud else { return .none }
+                state.isCheckingICloud = true
+                return .run { send in
+                    await send(.iCloudCheckResponse(iCloudClient.refresh()))
+                }.cancellable(id: CancelID.check, cancelInFlight: true)
+
+            case .iCloudStatusChanged(let snapshot), .iCloudCheckResponse(let snapshot):
+                if case .iCloudCheckResponse = action { state.isCheckingICloud = false }
+                guard snapshot.version >= state.iCloudSnapshotVersion else { return .none }
+                state.iCloudSnapshotVersion = snapshot.version
+                state.iCloudStatus = snapshot.status
+                state.lastConfirmedSync = snapshot.lastConfirmedSync
+                let didChangeData = snapshot.dataRevision != state.iCloudDataRevision
+                state.iCloudDataRevision = snapshot.dataRevision
+                return didChangeData ? .send(.iCloudDataChanged) : .none
+
+            case .iCloudDataChanged:
                 return .none
             }
         }

@@ -92,6 +92,7 @@ public struct SettingsView: View {
                         block(title: "ICLOUD") {
                             ICloudSettingsView(
                                 status: store.iCloudStatus,
+                                isChecking: store.isCheckingICloud,
                                 lastConfirmedSync: store.lastConfirmedSync,
                                 onCheckStatus: {
                                     store.send(.didTapCheckICloudStatus)

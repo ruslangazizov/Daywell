@@ -22,6 +22,7 @@ extension TasksReducer {
         var detailsID: TaskOccurrenceID?
         public internal(set) var habitStatisticsID: UUID?
         var isLoading = false
+        var storeRefreshPending = false
         var errorMessage: String?
         @SharedReader(Preferences.defaultTaskDuration) var defaultTaskDuration
         @Presents var taskEditor: TaskEditorReducer.State?

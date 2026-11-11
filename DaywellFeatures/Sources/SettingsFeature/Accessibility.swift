@@ -1,4 +1,5 @@
 public nonisolated enum Accessibility {
+    public static let appIconBadge = "settings.appIconBadge"
     public static let taskReminders = "settings.taskReminders"
     public static let checkICloudStatus = "settings.icloud.checkStatus"
     public static let iCloudStatus = "settings.icloud.status"

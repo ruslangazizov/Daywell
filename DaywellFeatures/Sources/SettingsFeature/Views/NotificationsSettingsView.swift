@@ -5,6 +5,8 @@ struct NotificationsSettingsView: View {
     @Binding var taskRemindersEnabled: Bool
     @Binding var appIconBadgeEnabled: Bool
     var isRequestingNotifications = false
+    var isRequestingBadgeAuthorization = false
+    var badgeDescription = "Unfinished tasks for today"
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -15,7 +17,7 @@ struct NotificationsSettingsView: View {
                     subtitle: "On this device"
                 )
             }
-            .disabled(isRequestingNotifications)
+            .disabled(isRequestingNotifications || isRequestingBadgeAuthorization)
             .accessibilityIdentifier(Accessibility.taskReminders)
             .padding(.vertical, 16)
 
@@ -25,9 +27,11 @@ struct NotificationsSettingsView: View {
             Toggle(isOn: $appIconBadgeEnabled) {
                 label(
                     title: "App icon badge",
-                    subtitle: "Unfinished tasks for today"
+                    subtitle: badgeDescription
                 )
             }
+            .disabled(isRequestingNotifications || isRequestingBadgeAuthorization)
+            .accessibilityIdentifier(Accessibility.appIconBadge)
             .padding(.vertical, 16)
         }
         .toggleStyle(.switch)

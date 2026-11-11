@@ -85,6 +85,11 @@ let package = Package(
         ),
         // Tests
         .testTarget(
+            name: "AppRootFeatureTests",
+            dependencies: ["AppRootFeature"],
+            swiftSettings: uiModuleSettings
+        ),
+        .testTarget(
             name: "TasksFeatureTests",
             dependencies: ["TasksFeature"],
             swiftSettings: uiModuleSettings

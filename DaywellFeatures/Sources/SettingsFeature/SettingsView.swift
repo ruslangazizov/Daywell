@@ -82,7 +82,10 @@ public struct SettingsView: View {
                                     .sending(\.didChangeTaskRemindersEnabled),
                                 appIconBadgeEnabled: $store.appIconBadgeEnabled
                                     .sending(\.didChangeAppIconBadgeEnabled),
-                                isRequestingNotifications: store.isRequestingNotifications
+                                isRequestingNotifications: store.isRequestingNotifications,
+                                isRequestingBadgeAuthorization: store.isRequestingBadgeAuthorization,
+                                badgeDescription: store.todayLayout == .zones
+                                    ? "Unfinished tasks in the current zone" : "Unfinished tasks for today"
                             )
                         } footer: {
                             explanation(

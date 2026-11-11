@@ -19,7 +19,7 @@ struct SettingsPersistenceTests {
         #expect(state.taskDurations == TaskDuration.defaults)
         #expect(state.defaultTaskDuration == TaskDuration(minutes: 30))
         #expect(!state.taskRemindersEnabled)
-        #expect(state.appIconBadgeEnabled)
+        #expect(!state.appIconBadgeEnabled)
     }
 
     @Test func preferencesStaySharedWhenReaderIsCreatedBeforeSettings() async {

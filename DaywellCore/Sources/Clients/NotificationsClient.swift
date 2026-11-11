@@ -18,12 +18,28 @@ public nonisolated enum NotificationAuthorization: Equatable, Sendable {
     }
 }
 
+public nonisolated struct NotificationConfiguration: Equatable, Sendable {
+    public var remindersEnabled: Bool
+    public var badgeEnabled: Bool
+    public var layout: TodayLayout
+    public var zones: [DayZone]
+
+    public init(remindersEnabled: Bool, badgeEnabled: Bool, layout: TodayLayout, zones: [DayZone]) {
+        self.remindersEnabled = remindersEnabled
+        self.badgeEnabled = badgeEnabled
+        self.layout = layout
+        self.zones = zones
+    }
+}
+
 public nonisolated struct NotificationsClient: Sendable {
     public var authorizationStatus: @Sendable () async -> NotificationAuthorization
     public var requestAuthorization: @Sendable () async throws -> NotificationAuthorization
+    public var badgeAuthorizationStatus: @Sendable () async -> NotificationAuthorization
+    public var requestBadgeAuthorization: @Sendable () async throws -> NotificationAuthorization
     public var openSettings: @Sendable () async -> Void
     public var responses: @Sendable () async -> AsyncStream<TaskOccurrenceID>
-    public var synchronize: @Sendable (Bool) async throws -> Void
+    public var synchronize: @Sendable (NotificationConfiguration) async throws -> Void
 }
 
 extension DependencyValues {
@@ -40,10 +56,19 @@ extension NotificationsClient: DependencyKey {
         },
         requestAuthorization: {
             let center = UNUserNotificationCenter.current()
-            if await center.notificationSettings().authorizationStatus == .notDetermined {
-                _ = try await center.requestAuthorization(options: [.alert, .sound])
-            }
+            // Request these types even after badge-only authorization was granted.
+            _ = try await center.requestAuthorization(options: [.alert, .sound])
             return NotificationAuthorization(await center.notificationSettings().authorizationStatus)
+        },
+        badgeAuthorizationStatus: {
+            let settings = await UNUserNotificationCenter.current().notificationSettings()
+            if settings.authorizationStatus == .notDetermined { return .notDetermined }
+            return settings.badgeSetting == .enabled ? .authorized : .denied
+        },
+        requestBadgeAuthorization: {
+            let center = UNUserNotificationCenter.current()
+            _ = try await center.requestAuthorization(options: [.badge])
+            return await center.notificationSettings().badgeSetting == .enabled ? .authorized : .denied
         },
         openSettings: {
             await MainActor.run {
@@ -52,16 +77,28 @@ extension NotificationsClient: DependencyKey {
             }
         },
         responses: { await NotificationResponseObserver.shared.stream },
-        synchronize: { try await ReminderNotificationScheduler.live.synchronize(enabled: $0) }
+        synchronize: {
+            try await ReminderNotificationScheduler.live.synchronize(
+                enabled: $0.remindersEnabled, badgeEnabled: $0.badgeEnabled, layout: $0.layout, zones: $0.zones
+            )
+        }
     )
 
     public static let previewValue = Self(
-        authorizationStatus: { .authorized }, requestAuthorization: { .authorized },
-        openSettings: {}, responses: { AsyncStream { $0.finish() } }, synchronize: { _ in }
+        authorizationStatus: { .authorized },
+        requestAuthorization: { .authorized },
+        badgeAuthorizationStatus: { .authorized },
+        requestBadgeAuthorization: { .authorized },
+        openSettings: {},
+        responses: { AsyncStream { $0.finish() } },
+        synchronize: { _ in }
     )
+
     public static let testValue = Self(
         authorizationStatus: unimplemented("NotificationsClient.authorizationStatus", placeholder: .notDetermined),
         requestAuthorization: unimplemented("NotificationsClient.requestAuthorization"),
+        badgeAuthorizationStatus: unimplemented("NotificationsClient.badgeAuthorizationStatus", placeholder: .notDetermined),
+        requestBadgeAuthorization: unimplemented("NotificationsClient.requestBadgeAuthorization"),
         openSettings: unimplemented("NotificationsClient.openSettings"),
         responses: unimplemented("NotificationsClient.responses", placeholder: AsyncStream { $0.finish() }),
         synchronize: unimplemented("NotificationsClient.synchronize")

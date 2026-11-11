@@ -9,6 +9,9 @@ struct DeliveredTaskReminder: Sendable {
 
 protocol ReminderNotificationCenter: Sendable {
     func isAuthorized() async -> Bool
+    func isBadgeAuthorized() async -> Bool
+    func setBadgeCount(_ count: Int) async throws
+    func addBadge(_ update: AppIconBadgeUpdate) async throws
     func pendingIdentifiers() async -> [String]
     func deliveredReminders() async -> [DeliveredTaskReminder]
     func removePending(_ identifiers: [String]) async
@@ -19,6 +22,32 @@ protocol ReminderNotificationCenter: Sendable {
 struct SystemReminderNotificationCenter: ReminderNotificationCenter {
     func isAuthorized() async -> Bool {
         NotificationAuthorization(await UNUserNotificationCenter.current().notificationSettings().authorizationStatus) == .authorized
+    }
+
+    func isBadgeAuthorized() async -> Bool {
+        await UNUserNotificationCenter.current().notificationSettings().badgeSetting == .enabled
+    }
+
+    func setBadgeCount(_ count: Int) async throws {
+        try await UNUserNotificationCenter.current().setBadgeCount(count)
+    }
+
+    func addBadge(_ update: AppIconBadgeUpdate) async throws {
+        guard update.fireDate > .now else { return }
+
+        let content = UNMutableNotificationContent()
+        content.badge = NSNumber(value: update.count)
+        // A badge-only notification has no banner, sound, or task navigation payload.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: update.fireDate)
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        try await UNUserNotificationCenter.current().add(UNNotificationRequest(
+            identifier: update.id,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        ))
     }
 
     func pendingIdentifiers() async -> [String] {

@@ -17,6 +17,9 @@ public struct RootReducer: Reducer {
     @ObservableState
     public struct State: Equatable {
         @SharedReader(Preferences.taskRemindersEnabled) var taskRemindersEnabled
+        @SharedReader(Preferences.appIconBadgeEnabled) var appIconBadgeEnabled
+        @SharedReader(Preferences.todayLayout) var todayLayout
+        @SharedReader(Preferences.dailyZones) var dailyZones
         var selectedTab: Tab = .today
         var tasks = TasksReducer.State()
         var statistics = StatisticsReducer.State()
@@ -28,7 +31,7 @@ public struct RootReducer: Reducer {
         case task
         case reminderTapped(TaskOccurrenceID)
         case tabSelected(Tab)
-        case synchronizeReminders
+        case synchronizeNotifications
         case becameActive
         case tasks(TasksReducer.Action)
         case statistics(StatisticsReducer.Action)
@@ -66,36 +69,49 @@ public struct RootReducer: Reducer {
             case .reminderTapped(let id):
                 state.selectedTab = .today
                 return .send(.tasks(.openReminder(id)))
-            case .synchronizeReminders:
-                return .run { [enabled = state.taskRemindersEnabled] send in
+            case .synchronizeNotifications:
+                let configuration = NotificationConfiguration(
+                    remindersEnabled: state.taskRemindersEnabled, badgeEnabled: state.appIconBadgeEnabled,
+                    layout: state.todayLayout, zones: state.dailyZones
+                )
+                return .run { send in
                     do {
-                        try await notificationsClient.synchronize(enabled)
+                        try await notificationsClient.synchronize(configuration)
                         await send(.settings(.reminderSchedulingResponse(nil)))
                     } catch {
                         await send(.settings(.reminderSchedulingResponse(
-                            "Reminders could not be updated. Reopen Daywell to try again."
+                            "Notifications could not be updated. Reopen Daywell to try again."
                         )))
                     }
                 }
             case .settings(.task):
-                return .merge(.send(.settings(.checkNotificationAuthorization)), .send(.synchronizeReminders))
-            case .settings(.notificationAuthorizationResponse),
+                return .merge(.send(.settings(.checkNotificationAuthorization)),
+                              .send(.settings(.checkBadgeAuthorization)), .send(.synchronizeNotifications))
+            case .settings(.badgeAuthorizationResponse),
+                 .settings(.badgeStatusChecked),
+                 .settings(.didChangeAppIconBadgeEnabled(false)),
+                 .settings(.didChooseTodayLayout),
+                 .settings(.dailyZones(.didTapDelete)),
+                 .settings(.dailyZones(.confirmation(.presented(.restoreDefaults)))),
+                 .settings(.dailyZones(.editor(.presented(.delegate(.didSave))))),
+                 .settings(.notificationAuthorizationResponse),
                  .settings(.notificationStatusChecked),
                  .settings(.didChangeTaskRemindersEnabled(false)),
                  .tasks(.dataResponse(.success)):
-                return .send(.synchronizeReminders)
+                return .send(.synchronizeNotifications)
             case .tasks(.clockTick):
-                return state.taskRemindersEnabled ? .send(.synchronizeReminders) : .none
+                return state.taskRemindersEnabled || state.appIconBadgeEnabled ? .send(.synchronizeNotifications) : .none
             case .becameActive:
                 return .merge(
                     .send(.settings(.checkNotificationAuthorization)),
-                    .send(.synchronizeReminders),
+                    .send(.settings(.checkBadgeAuthorization)),
+                    .send(.synchronizeNotifications),
                     .send(.settings(.didTapCheckICloudStatus)),
                     .send(.tasks(.storeChanged)),
                     .send(.statistics(.task))
                 )
             case .settings(.iCloudDataChanged):
-                return .merge(.send(.tasks(.storeChanged)), .send(.statistics(.task)), .send(.synchronizeReminders))
+                return .merge(.send(.tasks(.storeChanged)), .send(.statistics(.task)), .send(.synchronizeNotifications))
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none
@@ -111,7 +127,7 @@ public struct RootReducer: Reducer {
                  .tasks(.taskEditor(.presented(.delegate(.didSave)))):
                 // A write may finish after the user has switched tabs.
                 return .merge(
-                    .send(.synchronizeReminders),
+                    .send(.synchronizeNotifications),
                     state.selectedTab == .statistics || state.tasks.habitStatisticsID != nil
                         ? .send(.statistics(.task)) : .none
                 )

@@ -17,7 +17,7 @@ final class NotificationResponseObserver: NSObject, UNUserNotificationCenterDele
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        notification.request.identifier.hasPrefix("app-icon-badge/") ? [.badge] : [.banner, .sound]
     }
 
     func userNotificationCenter(

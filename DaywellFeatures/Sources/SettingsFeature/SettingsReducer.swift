@@ -5,6 +5,8 @@ import Domain
 import Foundation
 import Persistence
 
+private nonisolated enum CancelID: Hashable, Sendable { case observation, check, notificationPermission, badgePermission }
+
 public struct SettingsReducer: Reducer {
     @ObservableState
     public struct State: Equatable {
@@ -21,10 +23,11 @@ public struct SettingsReducer: Reducer {
         @Shared(Preferences.taskRemindersEnabled) var taskRemindersEnabled
         @Shared(Preferences.appIconBadgeEnabled) var appIconBadgeEnabled
         var isRequestingNotifications = false
+        var isRequestingBadgeAuthorization = false
         var reminderSchedulingError: String?
         @Presents var notificationsAlert: AlertState<Action.NotificationsAlert>?
         var iCloudStatus: ICloudSyncStatus
-        var lastConfirmedSync: Date?
+        var lastConfirmedSync: Date? = nil
         var isCheckingICloud = false
         var iCloudDataRevision = 0
         var iCloudSnapshotVersion = 0
@@ -34,11 +37,9 @@ public struct SettingsReducer: Reducer {
         }
 
         public init(
-            iCloudStatus: ICloudSyncStatus = .notChecked,
-            lastConfirmedSync: Date? = nil
+            iCloudStatus: ICloudSyncStatus = .notChecked
         ) {
             self.iCloudStatus = iCloudStatus
-            self.lastConfirmedSync = lastConfirmedSync
         }
     }
 
@@ -58,6 +59,9 @@ public struct SettingsReducer: Reducer {
         case notificationsAlert(PresentationAction<NotificationsAlert>)
         case reminderSchedulingResponse(String?)
         case didChangeAppIconBadgeEnabled(Bool)
+        case checkBadgeAuthorization
+        case badgeStatusChecked(NotificationAuthorization)
+        case badgeAuthorizationResponse(Result<NotificationAuthorization, Error>)
         case didTapCheckICloudStatus
         case iCloudStatusChanged(ICloudSnapshot)
         case iCloudCheckResponse(ICloudSnapshot)
@@ -94,18 +98,8 @@ public struct SettingsReducer: Reducer {
     @Dependency(\.userInterfaceStyleClient) var userInterfaceStyleClient
     @Dependency(\.iCloudClient) var iCloudClient
     @Dependency(\.notificationsClient) var notificationsClient
-    private nonisolated enum CancelID: Hashable, Sendable { case observation, check, notificationPermission }
 
     @Dependency(\.uuid) var uuid
-
-    static var notificationsDeniedAlert: AlertState<Action.NotificationsAlert> {
-        AlertState { TextState("Notifications are off") } actions: {
-            ButtonState(action: .openSettings) { TextState("Open Settings") }
-            ButtonState(role: .cancel) { TextState("Not now") }
-        } message: {
-            TextState("Allow notifications for Daywell in iOS Settings, then turn Task reminders on again.")
-        }
-    }
 
     public init() {}
 
@@ -231,7 +225,10 @@ public struct SettingsReducer: Reducer {
                     state.$taskRemindersEnabled.withLock { $0 = true }
                 case .success:
                     state.$taskRemindersEnabled.withLock { $0 = false }
-                    state.notificationsAlert = Self.notificationsDeniedAlert
+                    state.notificationsAlert = Self.openSettingsAlert(
+                        title: "Notifications are off",
+                        message: "Allow notifications for Daywell in iOS Settings, then turn Task reminders on again."
+                    )
                 case .failure:
                     state.$taskRemindersEnabled.withLock { $0 = false }
                     state.notificationsAlert = AlertState {
@@ -266,8 +263,53 @@ public struct SettingsReducer: Reducer {
                 return .none
 
             case .didChangeAppIconBadgeEnabled(let isEnabled):
-                state.$appIconBadgeEnabled.withLock { $0 = isEnabled }
-                // TODO: update the app icon badge.
+                state.reminderSchedulingError = nil
+                if !isEnabled {
+                    state.$appIconBadgeEnabled.withLock { $0 = false }
+                    state.isRequestingBadgeAuthorization = false
+                    return .cancel(id: CancelID.badgePermission)
+                }
+
+                guard !state.appIconBadgeEnabled, !state.isRequestingBadgeAuthorization else { return .none }
+
+                state.$appIconBadgeEnabled.withLock { $0 = true }
+                state.isRequestingBadgeAuthorization = true
+                return .run { send in
+                    await send(.badgeAuthorizationResponse(Result {
+                        try await notificationsClient.requestBadgeAuthorization()
+                    }))
+                }.cancellable(id: CancelID.badgePermission, cancelInFlight: true)
+
+            case .badgeAuthorizationResponse(let result):
+                guard state.isRequestingBadgeAuthorization else { return .none }
+
+                state.isRequestingBadgeAuthorization = false
+                switch result {
+                case .success(.authorized):
+                    state.$appIconBadgeEnabled.withLock { $0 = true }
+                case .success:
+                    state.$appIconBadgeEnabled.withLock { $0 = false }
+                    state.notificationsAlert = Self.openSettingsAlert(
+                        title: "App icon badges are off",
+                        message: "Allow Badges for Daywell in iOS Settings, then turn App icon badge on again."
+                    )
+                case .failure:
+                    state.$appIconBadgeEnabled.withLock { $0 = false }
+                    state.notificationsAlert = Self.couldNotEnableAppIconBadgeAlert
+                }
+                return .none
+
+            case .checkBadgeAuthorization:
+                guard state.appIconBadgeEnabled, !state.isRequestingBadgeAuthorization else { return .none }
+
+                return .run { send in
+                    await send(.badgeStatusChecked(notificationsClient.badgeAuthorizationStatus()))
+                }
+
+            case .badgeStatusChecked(let status):
+                guard !state.isRequestingBadgeAuthorization else { return .none }
+
+                if status != .authorized { state.$appIconBadgeEnabled.withLock { $0 = false } }
                 return .none
 
             case .didTapCheckICloudStatus:
@@ -301,7 +343,31 @@ public struct SettingsReducer: Reducer {
         .ifLet(\.$zonesConfirmation, action: \.dailyZones.confirmation)
     }
 
-    static var restoreZonesConfirmation: ConfirmationDialogState<Action.DailyZonesAction.Confirmation> {
+    // MARK: - Private
+
+    private static func openSettingsAlert(
+        title: String,
+        message: String
+    ) -> AlertState<Action.NotificationsAlert> {
+        AlertState {
+            TextState(title)
+        } actions: {
+            ButtonState(action: .openSettings) { TextState("Open Settings") }
+            ButtonState(role: .cancel) { TextState("Not now") }
+        } message: {
+            TextState(message)
+        }
+    }
+
+    private static var couldNotEnableAppIconBadgeAlert: AlertState<Action.NotificationsAlert> {
+        AlertState { TextState("Could not enable app icon badge") } actions: {
+            ButtonState(role: .cancel) { TextState("OK") }
+        } message: {
+            TextState("Please try turning App icon badge on again.")
+        }
+    }
+
+    private static var restoreZonesConfirmation: ConfirmationDialogState<Action.DailyZonesAction.Confirmation> {
         ConfirmationDialogState {
             TextState("Restore default zones?")
         } actions: {

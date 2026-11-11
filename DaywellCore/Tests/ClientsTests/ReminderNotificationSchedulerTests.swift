@@ -7,6 +7,69 @@ struct ReminderNotificationSchedulerTests {
     private let now = ISO8601DateFormatter().date(from: "2026-11-09T00:00:00Z")!
     private let zone = TimeZone(secondsFromGMT: 0)!
 
+    @Test func badgeWorksWithoutRemindersAndDisableClearsIt() async throws {
+        let center = RecordingNotificationCenter()
+        let day = try LocalDate(year: 2026, month: 11, day: 9)
+        let task = try DWTask(title: "Read", schedule: .once(on: day))
+        let scheduler = ReminderNotificationScheduler(center: center, now: { now }, timeZone: { zone }) {
+            ReminderStoreSnapshot(tasks: [task], occurrences: [])
+        }
+        try await scheduler.synchronize(enabled: false, badgeEnabled: true)
+        #expect(await center.badgeCount == 1)
+        #expect(await center.badgeUpdates.values.first?.count == 0)
+        #expect(await center.requests.isEmpty)
+        try await scheduler.synchronize(enabled: false)
+        #expect(await center.badgeCount == 0)
+        #expect(await center.pendingIdentifiers().isEmpty)
+    }
+
+    @Test func badgeFollowsPersistedCompletionAndUndo() async throws {
+        let center = RecordingNotificationCenter()
+        let day = try LocalDate(year: 2026, month: 11, day: 9)
+        let task = try DWTask(title: "Read", schedule: .once(on: day))
+        let source = ReminderTestStore(tasks: [task])
+        let scheduler = ReminderNotificationScheduler(center: center, now: { now }, timeZone: { zone }) {
+            await source.snapshot
+        }
+        try await scheduler.synchronize(enabled: false, badgeEnabled: true)
+        #expect(await center.badgeCount == 1)
+        await source.complete(try OccurrenceRecord(id: .init(taskID: task.id, day: day), outcome: .completed(at: now)))
+        try await scheduler.synchronize(enabled: false, badgeEnabled: true)
+        #expect(await center.badgeCount == 0)
+        #expect(await center.badgeUpdates.isEmpty)
+        await source.undo()
+        try await scheduler.synchronize(enabled: false, badgeEnabled: true)
+        #expect(await center.badgeCount == 1)
+    }
+
+    @Test func badgeStorageFailurePreservesCountAndOptOutStillClears() async throws {
+        let center = RecordingNotificationCenter()
+        await center.setBadgeCount(3)
+        await center.seed(pending: ["app-icon-badge/old", "unrelated"], delivered: [])
+        let scheduler = ReminderNotificationScheduler(center: center) { throw TestError.failed }
+        await #expect(throws: TestError.self) { try await scheduler.synchronize(enabled: false, badgeEnabled: true) }
+        #expect(await center.badgeCount == 3)
+        #expect(await center.pendingIdentifiers() == ["app-icon-badge/old", "unrelated"])
+        try await scheduler.synchronize(enabled: false)
+        #expect(await center.badgeCount == 0)
+        #expect(await center.pendingIdentifiers() == ["unrelated"])
+    }
+
+    @Test func combinedQueueStaysWithinSystemCapacity() async throws {
+        let center = RecordingNotificationCenter()
+        let day = try LocalDate(year: 2026, month: 11, day: 9)
+        let tasks = try (0..<80).map { index in
+            try DWTask(title: "Task \(index)", schedule: .once(on: day),
+                       reminder: .atTime(LocalTime(hour: 12, minute: 0)))
+        }
+        let scheduler = ReminderNotificationScheduler(center: center, now: { now }, timeZone: { zone }) {
+            ReminderStoreSnapshot(tasks: tasks, occurrences: [])
+        }
+        try await scheduler.synchronize(enabled: true, badgeEnabled: true)
+        #expect(await center.pendingIdentifiers().count == 64)
+        #expect(await center.badgeCount == 80)
+    }
+
     @Test func reconciliationReplacesEditedRequestsAndRemovesCompletedDeletedAndDelivered() async throws {
         let day = try LocalDate(year: 2026, month: 11, day: 10)
         let task = try DWTask(title: "New title", schedule: .once(on: day), reminder: .atTime(LocalTime(hour: 11, minute: 0)))
@@ -119,6 +182,14 @@ private actor RecordingNotificationCenter: ReminderNotificationCenter {
     var pending: Set<String> = []
     var delivered: [DeliveredTaskReminder] = []
     var requests: [String: TaskReminderRequest] = [:]
+    var badgeCount = 0
+    var badgeUpdates: [String: AppIconBadgeUpdate] = [:]
+    func isBadgeAuthorized() -> Bool { authorized }
+    func setBadgeCount(_ count: Int) { badgeCount = count }
+    func addBadge(_ update: AppIconBadgeUpdate) {
+        pending.insert(update.id)
+        badgeUpdates[update.id] = update
+    }
     init(authorized: Bool = true, beforeAdd: @escaping @Sendable () async -> Void = {}) {
         self.authorized = authorized
         self.beforeAdd = beforeAdd
@@ -132,7 +203,7 @@ private actor RecordingNotificationCenter: ReminderNotificationCenter {
     func deliveredReminders() -> [DeliveredTaskReminder] { delivered }
     func removePending(_ identifiers: [String]) {
         pending.subtract(identifiers)
-        for id in identifiers { requests[id] = nil }
+        for id in identifiers { requests[id] = nil; badgeUpdates[id] = nil }
     }
     func removeDelivered(_ identifiers: [String]) { delivered.removeAll { identifiers.contains($0.identifier) } }
     func add(_ request: TaskReminderRequest) async throws {

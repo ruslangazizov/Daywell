@@ -6,7 +6,7 @@ import SwiftUI
 /// Read observable state inside a destination view, rather than capturing a
 /// snapshot when SwiftUI first resolves the navigation destination.
 struct TaskDetailsDestination: View {
-    let store: StoreOf<TasksReducer>
+    @Bindable var store: StoreOf<TasksReducer>
     let id: TaskOccurrenceID
 
     var body: some View {
@@ -23,9 +23,11 @@ struct TaskDetailsDestination: View {
                 errorMessage: store.errorMessage,
                 onComplete: { store.send(.completionChanged(id, $0)) },
                 onEdit: { store.send(.editDetailsTapped) },
+                onRemove: { store.send(.removeDetailsTapped) },
                 onDismissError: { store.send(.dismissError) },
                 onTapMoreStats: { store.send(.moreStatsButtonTapped) }
             )
+            .alert($store.scope(state: \.notificationsAlert, action: \.notificationsAlert))
         } else {
             ContentUnavailableView("Task unavailable", systemImage: "calendar.badge.exclamationmark")
         }
@@ -38,6 +40,7 @@ struct TaskDetailsView: View {
     let errorMessage: String?
     let onComplete: (Bool) -> Void
     let onEdit: () -> Void
+    let onRemove: () -> Void
     let onDismissError: () -> Void
     let onTapMoreStats: () -> Void
 
@@ -99,6 +102,10 @@ struct TaskDetailsView: View {
         .background(DWColor.bg(colorScheme).ignoresSafeArea())
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button("Remove", action: onRemove)
+                    .accessibilityIdentifier(Accessibility.taskDetailsRemove)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit", action: onEdit)
                     .accessibilityIdentifier(Accessibility.taskDetailsEdit)
@@ -240,6 +247,7 @@ private func taskDetailsPreview() -> some View {
         errorMessage: nil,
         onComplete: { _ in },
         onEdit: {},
+        onRemove: {},
         onDismissError: {},
         onTapMoreStats: {}
     )

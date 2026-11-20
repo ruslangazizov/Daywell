@@ -14,6 +14,11 @@ public struct TasksReducer: Reducer {
             public let tasksOccurrences: IdentifiedArrayOf<OccurrenceRecord>
         }
 
+        @CasePathable
+        public enum NotificationsAlert: Equatable {
+            case removeTask
+        }
+
         case task
         case storeChanged
         case dataResponse(Result<Data, Error>)
@@ -26,6 +31,8 @@ public struct TasksReducer: Reducer {
         case openReminder(TaskOccurrenceID)
         case detailsChanged(TaskOccurrenceID?)
         case editDetailsTapped
+        case removeDetailsTapped
+        case notificationsAlert(PresentationAction<NotificationsAlert>)
         case completionChanged(TaskOccurrenceID, Bool)
         case completionSaveResponse(TaskOccurrenceID, previous: OccurrenceRecord?, saved: OccurrenceRecord?, Result<Void, Error>)
         case moreStatsButtonTapped
@@ -134,6 +141,29 @@ public struct TasksReducer: Reducer {
                 guard let id = state.detailsID, state.taskEditor == nil,
                       let task = state.tasks.first(where: { $0.id == id.taskID }) else { return .none }
                 state.taskEditor = TaskEditorReducer.State(task: task, calendar: calendar)
+                return .none
+
+            case .removeDetailsTapped:
+                state.notificationsAlert = AlertState {
+                    TextState("Are you sure you want to delete this task?")
+                } actions: {
+                    ButtonState(role: .destructive, action: .removeTask) { TextState("Delete task") }
+                    ButtonState(role: .cancel) { TextState("Not now") }
+                } message: {
+                    TextState("This action cannot be undone.")
+                }
+                return .none
+
+            case .notificationsAlert(.presented(.removeTask)):
+                guard let id = state.detailsID, state.taskEditor == nil else { return .none }
+
+                state.detailsID = nil
+                return .run { send in
+                    try await tasksClient.delete(id.taskID)
+                    await send(.storeChanged)
+                }
+
+            case .notificationsAlert:
                 return .none
 
             case let .planTaskAtHour(hour):
@@ -258,6 +288,7 @@ public struct TasksReducer: Reducer {
         .ifLet(\.$taskEditor, action: \.taskEditor) {
             TaskEditorReducer()
         }
+        .ifLet(\.$notificationsAlert, action: \.notificationsAlert)
     }
 
     public init() {}

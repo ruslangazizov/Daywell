@@ -27,6 +27,7 @@ extension TasksReducer {
         var errorMessage: String?
         @SharedReader(Preferences.defaultTaskDuration) var defaultTaskDuration
         @Presents var taskEditor: TaskEditorReducer.State?
+        @Presents var notificationsAlert: AlertState<Action.NotificationsAlert>?
 
         public init(
             selectedDate: Date = .now,

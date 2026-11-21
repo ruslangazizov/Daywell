@@ -11,6 +11,7 @@
     ],
   },
   "files": [
+    { "path": "DaywellUnitTests.xctestplan" },
     { "path": "DaywellFeatures" },
     { "path": "DaywellCore" },
     {

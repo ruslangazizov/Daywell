@@ -7,7 +7,6 @@ import SwiftUI
 struct TaskEditorView: View {
     @Bindable var store: StoreOf<TaskEditorReducer>
     @Environment(\.colorScheme) private var colorScheme
-    @FocusState private var focusedField: Field?
     private enum Field { case title, notes }
 
     var body: some View {
@@ -16,7 +15,6 @@ struct TaskEditorView: View {
                 Section {
                     TextField("Task name", text: $store.draft.title, axis: .vertical)
                         .lineLimit(1...3)
-                        .focused($focusedField, equals: .title)
                         .accessibilityIdentifier(Accessibility.taskEditorTitle)
                 }
                 .listRowBackground(DWColor.group)
@@ -24,7 +22,6 @@ struct TaskEditorView: View {
                 Section {
                     TextField("Description (optional)", text: $store.draft.notes, axis: .vertical)
                         .lineLimit(3...6)
-                        .focused($focusedField, equals: .notes)
                         .accessibilityIdentifier(Accessibility.taskEditorNotes)
                 }
                 .listRowBackground(DWColor.group)
@@ -93,14 +90,10 @@ struct TaskEditorView: View {
                         .disabled(!store.canSave)
                         .accessibilityIdentifier(Accessibility.taskEditorSave)
                 }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focusedField = nil }
-                }
             }
         }
         .tint(DWColor.accent(colorScheme))
-        .presentationDragIndicator(.visible)
+        .presentationDragIndicator(.hidden)
         .interactiveDismissDisabled(store.hasChanges || store.isSaving)
         .confirmationDialog($store.scope(state: \.discardConfirmation, action: \.discardConfirmation))
     }
@@ -219,7 +212,6 @@ struct TaskEditorView: View {
     }
 
     private func save() {
-        focusedField = nil
         store.send(.saveTapped)
     }
 }

@@ -16,7 +16,10 @@ struct TaskRemindersSettingsTests {
         await store.receive(\.notificationAuthorizationResponse) {
             $0.isRequestingNotifications = false
             $0.$taskRemindersEnabled.withLock { $0 = false }
-            $0.notificationsAlert = SettingsReducer.notificationsDeniedAlert
+            $0.notificationsAlert = SettingsReducer.openSettingsAlert(
+                title: "Notifications are off",
+                message: "Allow notifications for Daywell in iOS Settings, then turn Task reminders on again."
+            )
         }
     }
 

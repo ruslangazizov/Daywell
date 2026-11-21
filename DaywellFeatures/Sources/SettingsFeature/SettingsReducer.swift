@@ -343,9 +343,9 @@ public struct SettingsReducer: Reducer {
         .ifLet(\.$zonesConfirmation, action: \.dailyZones.confirmation)
     }
 
-    // MARK: - Private
+    // MARK: - Helper
 
-    private static func openSettingsAlert(
+    static func openSettingsAlert(
         title: String,
         message: String
     ) -> AlertState<Action.NotificationsAlert> {
@@ -367,7 +367,7 @@ public struct SettingsReducer: Reducer {
         }
     }
 
-    private static var restoreZonesConfirmation: ConfirmationDialogState<Action.DailyZonesAction.Confirmation> {
+    static var restoreZonesConfirmation: ConfirmationDialogState<Action.DailyZonesAction.Confirmation> {
         ConfirmationDialogState {
             TextState("Restore default zones?")
         } actions: {

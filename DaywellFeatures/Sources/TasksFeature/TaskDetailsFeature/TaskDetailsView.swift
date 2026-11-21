@@ -216,6 +216,7 @@ struct TaskDetailsView: View {
     }
 }
 
+#if DEBUG
 #Preview("Habit details") {
     NavigationStack { taskDetailsPreview() }
 }
@@ -226,7 +227,6 @@ struct TaskDetailsView: View {
         .environment(\.dynamicTypeSize, .accessibility3)
 }
 
-#if DEBUG
 private func taskDetailsPreview() -> some View {
     let day = try! LocalDate(year: 2026, month: 11, day: 1)
     let task = try! DWTask(

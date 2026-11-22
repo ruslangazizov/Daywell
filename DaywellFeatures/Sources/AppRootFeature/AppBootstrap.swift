@@ -6,9 +6,6 @@ public enum AppBootstrap {
         NotificationsClient.installDelegate()
         return Store(initialState: RootReducer.State()) {
             RootReducer()
-#if DEBUG
-                ._printChanges()
-#endif
         }
     }
 }

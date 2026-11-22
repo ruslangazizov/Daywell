@@ -32,12 +32,15 @@ public final class TaskStore {
     }
 
     public func fetchTasks() throws -> [DWTask] {
-        try taskWinners(in: makeContext()).values.filter { !$0.isDeleted }.map {
-            try JSONDecoder().decode(DWTask.self, from: $0.payload)
-        }.sorted {
-            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
-            return $0.id.uuidString < $1.id.uuidString
-        }
+        try taskWinners(in: makeContext())
+            .values
+            .filter { !$0.isDeleted }
+            .map {
+                try JSONDecoder().decode(DWTask.self, from: $0.payload)
+            }.sorted {
+                if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+                return $0.id.uuidString < $1.id.uuidString
+            }
     }
 
     public func saveTask(_ task: DWTask) throws {
@@ -55,26 +58,20 @@ public final class TaskStore {
         }
     }
 
-    /// Tombstones prevent a late-arriving duplicate from resurrecting a deleted task.
     public func deleteTask(_ id: DWTask.ID) throws {
         try write { context in
             let rows = try context.fetch(FetchDescriptor<StoredTask>(predicate: #Predicate { $0.id == id }))
             let now = Date.now
-            if rows.isEmpty {
-                let row = StoredTask(id: id, payload: Data(), modifiedAt: now)
-                row.isDeleted = true
-                context.insert(row)
-            }
             for row in rows {
                 row.isDeleted = true
                 row.modifiedAt = now
-                row.payload = Data()
+                context.delete(row)
             }
             let occurrences = try context.fetch(FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.taskID == id }))
-            for row in occurrences {
-                row.isDeleted = true
-                row.modifiedAt = now
-                row.payload = Data()
+            for occurrence in occurrences {
+                occurrence.isDeleted = true
+                occurrence.modifiedAt = now
+                context.delete(occurrence)
             }
         }
     }
@@ -83,13 +80,17 @@ public final class TaskStore {
         let context = makeContext()
         let taskIDs = Set(try taskWinners(in: context).values.filter { !$0.isDeleted }.map(\.id))
         let rows = try context.fetch(FetchDescriptor<StoredOccurrence>())
-        let winners = Dictionary(grouping: rows, by: \.key).values.compactMap { $0.max(by: Self.isOlder) }
-        return try winners.filter { !$0.isDeleted && taskIDs.contains($0.taskID) }.map {
-            try JSONDecoder().decode(OccurrenceRecord.self, from: $0.payload)
-        }.sorted {
-            if $0.day != $1.day { return $0.day < $1.day }
-            return $0.taskID.uuidString < $1.taskID.uuidString
-        }
+        return try Dictionary(grouping: rows, by: \.key)
+            .values
+            .compactMap { $0.max(by: Self.isOlder) }
+            .filter { !$0.isDeleted && taskIDs.contains($0.taskID) }
+            .map {
+                try JSONDecoder().decode(OccurrenceRecord.self, from: $0.payload)
+            }
+            .sorted {
+                if $0.day != $1.day { return $0.day < $1.day }
+                return $0.taskID.uuidString < $1.taskID.uuidString
+            }
     }
 
     public func saveOccurrence(_ occurrence: OccurrenceRecord) throws {
@@ -117,15 +118,10 @@ public final class TaskStore {
             let key = Self.key(id)
             let rows = try context.fetch(FetchDescriptor<StoredOccurrence>(predicate: #Predicate { $0.key == key }))
             let now = Date.now
-            if rows.isEmpty {
-                let row = StoredOccurrence(key: key, taskID: id.taskID, payload: Data(), modifiedAt: now)
-                row.isDeleted = true
-                context.insert(row)
-            }
             for row in rows {
                 row.isDeleted = true
                 row.modifiedAt = now
-                row.payload = Data()
+                context.delete(row)
             }
         }
     }

@@ -222,7 +222,8 @@ public struct TasksReducer: Reducer {
                     guard previous?.isCompleted != true else { return .none }
                     do {
                         state.tasksOccurrences[id: id] = try OccurrenceRecord(
-                            id: id, outcome: .completed(at: dateGenerator.now)
+                            id: id,
+                            outcome: .completed(at: dateGenerator.now)
                         )
                     } catch {
                         state.errorMessage = error.localizedDescription

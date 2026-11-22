@@ -90,7 +90,11 @@ public struct TasksTodayView: View {
         let timeline = store.timeline
         switch store.todayLayout {
         case .timeline:
-            TodayTimelineView(model: timeline, onOpen: { store.send(.detailsChanged($0)) }, onCompletionChanged: completeTask)
+            TodayTimelineView(
+                model: timeline,
+                onOpen: { store.send(.detailsChanged($0)) },
+                onCompletionChanged: completeTask
+            )
         case .agenda:
             TodayAgendaView(
                 model: TodayListViewModel(timeline: timeline, zones: store.zones),

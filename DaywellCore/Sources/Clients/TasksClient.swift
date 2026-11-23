@@ -14,6 +14,7 @@ public nonisolated struct TasksClient: Sendable {
     /// Inserts or replaces a record with the same identity.
     public var save: @Sendable (DWTask) async throws -> Void
     public var delete: @Sendable (DWTask.ID) async throws -> Void
+    public var deleteAllModels: @Sendable () async throws -> Void
 
     public static func swiftData(_ store: TaskStore) -> Self {
         storage { store }
@@ -23,7 +24,8 @@ public nonisolated struct TasksClient: Sendable {
         Self(
             fetch: { try await store().fetchTasks() },
             save: { try await store().saveTask($0) },
-            delete: { try await store().deleteTask($0) }
+            delete: { try await store().deleteTask($0) },
+            deleteAllModels: { try await store().deleteAllModels() }
         )
     }
 }
@@ -43,7 +45,8 @@ extension TasksClient: DependencyKey {
         Self(
             fetch: unimplemented("TasksClient.fetch"),
             save: unimplemented("TasksClient.save"),
-            delete: unimplemented("TasksClient.delete")
+            delete: unimplemented("TasksClient.delete"),
+            deleteAllModels: unimplemented("TasksClient.deleteAllModels")
         )
     }
 }

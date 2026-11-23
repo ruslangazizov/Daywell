@@ -85,8 +85,11 @@ public struct RootReducer: Reducer {
                     }
                 }
             case .settings(.task):
-                return .merge(.send(.settings(.checkNotificationAuthorization)),
-                              .send(.settings(.checkBadgeAuthorization)), .send(.synchronizeNotifications))
+                return .merge(
+                    .send(.settings(.checkNotificationAuthorization)),
+                    .send(.settings(.checkBadgeAuthorization)),
+                    .send(.synchronizeNotifications)
+                )
             case .settings(.badgeAuthorizationResponse),
                  .settings(.badgeStatusChecked),
                  .settings(.didChangeAppIconBadgeEnabled(false)),
@@ -110,8 +113,13 @@ public struct RootReducer: Reducer {
                     .send(.tasks(.storeChanged)),
                     .send(.statistics(.task))
                 )
-            case .settings(.iCloudDataChanged):
-                return .merge(.send(.tasks(.storeChanged)), .send(.statistics(.task)), .send(.synchronizeNotifications))
+            case .settings(.delegate(.iCloudDataChanged)),
+                    .settings(.delegate(.didRemoveAllData)):
+                return .merge(
+                    .send(.tasks(.storeChanged)),
+                    .send(.statistics(.task)),
+                    .send(.synchronizeNotifications)
+                )
             case let .tabSelected(tab):
                 state.selectedTab = tab
                 return .none

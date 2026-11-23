@@ -31,6 +31,7 @@ public struct SettingsReducer: Reducer {
         var isCheckingICloud = false
         var iCloudDataRevision = 0
         var iCloudSnapshotVersion = 0
+        var webViewUrl: URL? = nil
 
         var sortedDailyZones: [DayZone] {
             dailyZones.sorted { $0.window.start < $1.window.start }
@@ -65,11 +66,21 @@ public struct SettingsReducer: Reducer {
         case didTapCheckICloudStatus
         case iCloudStatusChanged(ICloudSnapshot)
         case iCloudCheckResponse(ICloudSnapshot)
-        case iCloudDataChanged
+        case privacyPolicyTapped
+        case dismissWebViewTapped(URL?)
+        case removeAllDataTapped
+        case delegate(Delegate)
+
+        @CasePathable
+        public enum Delegate: Equatable {
+            case iCloudDataChanged
+            case didRemoveAllData
+        }
 
         @CasePathable
         public enum NotificationsAlert: Equatable {
             case openSettings
+            case removeAllData
         }
 
         @CasePathable
@@ -98,7 +109,7 @@ public struct SettingsReducer: Reducer {
     @Dependency(\.userInterfaceStyleClient) var userInterfaceStyleClient
     @Dependency(\.iCloudClient) var iCloudClient
     @Dependency(\.notificationsClient) var notificationsClient
-
+    @Dependency(\.tasksClient) var tasksClient
     @Dependency(\.uuid) var uuid
 
     public init() {}
@@ -252,11 +263,20 @@ public struct SettingsReducer: Reducer {
                 if status != .authorized { state.$taskRemindersEnabled.withLock { $0 = false } }
                 return .none
 
-            case .notificationsAlert(.presented(.openSettings)):
-                return .run { _ in await notificationsClient.openSettings() }
+            case .notificationsAlert(let presentationAction):
+                guard case .presented(let action) = presentationAction else { return .none }
 
-            case .notificationsAlert:
-                return .none
+                switch action {
+                case .openSettings:
+                    return .run { _ in
+                        await notificationsClient.openSettings()
+                    }
+                case .removeAllData:
+                    return .run { send in
+                        try await tasksClient.deleteAllModels()
+                        await send(.delegate(.didRemoveAllData))
+                    }
+                }
 
             case .reminderSchedulingResponse(let error):
                 state.reminderSchedulingError = error
@@ -327,9 +347,31 @@ public struct SettingsReducer: Reducer {
                 state.lastConfirmedSync = snapshot.lastConfirmedSync
                 let didChangeData = snapshot.dataRevision != state.iCloudDataRevision
                 state.iCloudDataRevision = snapshot.dataRevision
-                return didChangeData ? .send(.iCloudDataChanged) : .none
+                return didChangeData ? .send(.delegate(.iCloudDataChanged)) : .none
 
-            case .iCloudDataChanged:
+            case .privacyPolicyTapped:
+                state.webViewUrl = URL(string: "https://github.com/ruslangazizov/Daywell/blob/main/PRIVACY_POLICY.md")
+                return .none
+
+            case .dismissWebViewTapped:
+                state.webViewUrl = nil
+                return .none
+
+            case .removeAllDataTapped:
+                state.notificationsAlert = AlertState {
+                    TextState("Delete all data?")
+                } actions: {
+                    ButtonState(role: .destructive, action: .send(.removeAllData)) {
+                        TextState("Delete")
+                    }
+                    ButtonState(role: .cancel) { TextState("Cancel") }
+                } message: {
+                    TextState("All tasks and their occurrences history will be deleted both from device and iCloud.")
+                }
+                return .none
+
+            case .delegate:
+                // Special case to send action to other reducers
                 return .none
             }
         }

@@ -31,6 +31,13 @@ public final class TaskStore {
         return context
     }
 
+    public func deleteAllModels() throws {
+        try write { context in
+            try context.delete(model: StoredTask.self)
+            try context.delete(model: StoredOccurrence.self)
+        }
+    }
+
     public func fetchTasks() throws -> [DWTask] {
         try taskWinners(in: makeContext())
             .values

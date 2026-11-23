@@ -2,6 +2,7 @@ import ComposableArchitecture
 import DesignSystem
 import SwiftUI
 import Domain
+import WebKit
 
 public struct SettingsView: View {
     @Bindable var store: StoreOf<SettingsReducer>
@@ -112,6 +113,13 @@ public struct SettingsView: View {
                                 "Changes are saved on this device first. Checking status does not force a sync."
                             )
                         }
+
+                        block(title: "LEGAL") {
+                            LegalView(
+                                onPrivacyPolicyTap: { store.send(.privacyPolicyTapped) },
+                                onRemoveAllData: { store.send(.removeAllDataTapped) }
+                            )
+                        }
                     }
                     .padding()
                 }
@@ -124,6 +132,19 @@ public struct SettingsView: View {
         }
         .sheet(item: $store.scope(state: \.editDayZone, action: \.dailyZones.editor)) { store in
             EditDayZoneView(store: store)
+        }
+        .sheet(item: $store.webViewUrl.sending(\.dismissWebViewTapped), id: \.self) { url in
+            NavigationStack {
+                WebView(url: url)
+                    .webViewBackForwardNavigationGestures(.disabled)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Close") {
+                                store.send(.dismissWebViewTapped(nil))
+                            }
+                        }
+                    }
+            }
         }
         .alert($store.scope(state: \.notificationsAlert, action: \.notificationsAlert))
         .confirmationDialog($store.scope(state: \.zonesConfirmation, action: \.dailyZones.confirmation))

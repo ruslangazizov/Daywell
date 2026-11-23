@@ -11,4 +11,5 @@ public nonisolated enum Accessibility {
     public static let taskWindow = "settings.taskWindow"
     public static let customDuration = "settings.customDuration"
     public static let customDurationSummary = "customDuration.summary"
+    public static let privacyPolicy = "settings.privacyPolicy"
 }

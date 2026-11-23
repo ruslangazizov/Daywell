@@ -231,16 +231,16 @@ struct StatisticsSummary: Equatable {
         // A retrospective mark tells us the task's day, but not its completion hour.
         let timed = selected.filter { calendar.isDate($0.record.recordedAt, inSameDayAs: $0.day) }
         let hourCounts = Dictionary(grouping: timed, by: { calendar.component(.hour, from: $0.record.recordedAt) }).mapValues(\.count)
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.locale = calendar.locale ?? .current
+        formatter.setLocalizedDateFormatFromTemplate("j")
+        // Use a fixed ordinary date for labels, so DST cannot erase an hour.
+        var utc = calendar
+        utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        formatter.timeZone = utc.timeZone
         hours = (0..<24).map { hour in
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.timeZone = calendar.timeZone
-            formatter.locale = calendar.locale ?? .current
-            formatter.setLocalizedDateFormatFromTemplate("j")
-            // Use a fixed ordinary date for labels, so DST cannot erase an hour.
-            var utc = calendar
-            utc.timeZone = TimeZone(secondsFromGMT: 0)!
-            formatter.timeZone = utc.timeZone
             let date = utc.date(from: DateComponents(year: 2026, month: 1, day: 15, hour: hour))!
             let next = utc.date(byAdding: .hour, value: 1, to: date)!
             let label = "\(formatter.string(from: date))–\(formatter.string(from: next))"

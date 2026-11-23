@@ -5,6 +5,11 @@
 </div>
 
 
+## TestFlight
+
+This app is published on TestFlight! Check it out - https://testflight.apple.com/join/CT3uFKDJ.
+
+
 ## Tools
 
 * SwiftUI
